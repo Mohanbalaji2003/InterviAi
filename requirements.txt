@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+psycopg2-binary
+python-dotenv
+google-genai
+requests
+streamlit
+PyMuPDF
+matplotlib
+scikit-learn

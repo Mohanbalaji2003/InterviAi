@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+:root {
+  --background: #070b12;
+  --foreground: #f8fafc;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top, rgba(124, 58, 237, 0.14), transparent 30%),
+    #070b12;
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(167, 139, 250, 0.35);
+  color: white;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+
+@keyframes orb-drift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(18px, -16px, 0) scale(1.06);
+  }
+}
+
+.animate-page-in {
+  animation: page-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-logo-in {
+  animation: logo-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-orb {
+  position: absolute;
+  width: 30rem;
+  height: 30rem;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.16;
+  animation: orb-drift 12s ease-in-out infinite;
+}
+
+.login-orb-one {
+  top: -18rem;
+  left: -10rem;
+  background: #7c3aed;
+}
+
+.login-orb-two {
+  right: -14rem;
+  bottom: -18rem;
+  background: #4338ca;
+  animation-delay: -4s;
+}
+
+.login-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.28;
+  background-image: linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+}
+
+.auth-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(2, 6, 23, 0.58);
+  padding: 0.75rem 0.875rem;
+  color: #f8fafc;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.auth-input::placeholder {
+  color: #475569;
+}
+
+.auth-input:focus {
+  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(2, 6, 23, 0.78);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-in,
+  .animate-logo-in,
+  .login-orb {
+    animation: none;
+  }
+}
