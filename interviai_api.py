@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Response, UploadFile, status
+from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -30,6 +30,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://intervi-ai-theta.vercel.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
@@ -121,7 +122,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
     except (ValueError, TypeError):
         return False
 
-def create_session(db: Session, user: User, response: Response) -> None:
+def create_session(db: Session, user: User, response: Response, request: Request) -> None:
     raw_token = secrets.token_urlsafe(48)
     session = AuthSession(
         user_id=user.id,
@@ -129,13 +130,15 @@ def create_session(db: Session, user: User, response: Response) -> None:
         expires_at=datetime.utcnow() + timedelta(days=7),
     )
     db.add(session)
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
+    is_https = request.url.scheme == "https" or forwarded_proto == "https"
     response.set_cookie(
         key='interviai_session',
         value=raw_token,
         max_age=7 * 24 * 60 * 60,
         httponly=True,
-        secure=False,
-        samesite='lax',
+        secure=is_https,
+        samesite='none' if is_https else 'lax',
     )
 
 def get_current_user(
@@ -157,7 +160,12 @@ def get_current_user(
     return db.get(User, session.user_id)
 
 @app.post('/auth/register')
-def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(
+    payload: RegisterRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     email = normalize_email(payload.email)
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='An account with this email already exists.')
@@ -175,19 +183,24 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     )
     db.add(user)
     db.flush()
-    create_session(db, user, response)
+    create_session(db, user, response, request)
     db.commit()
     return {'user': {'id': user.id, 'name': user.name, 'email': user.email}}
 
 @app.post('/auth/login')
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     email = normalize_email(payload.email)
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Incorrect email or password.')
 
     user.last_login_at = datetime.utcnow()
-    create_session(db, user, response)
+    create_session(db, user, response, request)
     db.commit()
     return {'user': {'id': user.id, 'name': user.name, 'email': user.email}}
 

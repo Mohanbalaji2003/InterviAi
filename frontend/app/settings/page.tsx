@@ -1,6 +1,7 @@
 import { Bell, MoonStar, ShieldCheck, Sparkles } from "lucide-react";
 
 import { Card } from "@/components/ui/Card";
+import { API_URL } from "@/lib/config";
 
 export default function SettingsPage() {
   return (
@@ -40,7 +41,7 @@ export default function SettingsPage() {
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Backend connection</p>
           <div className="mt-5 space-y-4 text-sm text-slate-300">
             <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3"><span className="inline-flex items-center gap-2"><ShieldCheck size={15} className="text-emerald-300" /> API status</span><span className="font-medium text-emerald-200">Connected</span></div>
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3"><span className="inline-flex items-center gap-2"><Sparkles size={15} className="text-violet-300" /> Endpoint</span><span className="font-medium text-white">http://127.0.0.1:8000</span></div>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3"><span className="inline-flex items-center gap-2"><Sparkles size={15} className="text-violet-300" /> Endpoint</span><span className="font-medium text-white">{API_URL}</span></div>
           </div>
         </Card>
       </div>

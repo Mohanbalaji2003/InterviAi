@@ -1,10 +1,10 @@
+import { API_URL } from "@/lib/config";
+
 export type AuthUser = {
   id: number;
   name: string;
   email: string;
 };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 async function authRequest(path: string, payload?: Record<string, string>) {
   const response = await fetch(`${API_URL}${path}`, {

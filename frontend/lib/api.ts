@@ -1,3 +1,5 @@
+import { API_URL } from "@/lib/config";
+
 export type DashboardData = {
   candidate: {
     id: number;
@@ -51,8 +53,6 @@ export const fallbackDashboardData: DashboardData = {
     verification_confidence: 81,
   },
 };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export async function fetchDashboardData(): Promise<DashboardData> {
   const controller = new AbortController();
