@@ -1,61 +1,39 @@
 ROLE_SKILLS = {
-
-    "Data Scientist": [
-        "Python",
-        "SQL",
-        "Machine Learning",
-        "Deep Learning",
-        "Pandas",
-        "NumPy",
-        "Statistics",
-        "Power BI"
-    ],
-
-    "Data Analyst": [
-        "Python",
-        "SQL",
-        "Excel",
-        "Power BI",
-        "Pandas",
-        "NumPy",
-        "Statistics"
-    ],
-
-    "Machine Learning Engineer": [
-        "Python",
-        "SQL",
-        "Machine Learning",
-        "Deep Learning",
-        "TensorFlow",
-        "PyTorch",
-        "Docker",
-        "FastAPI",
-        "Git"
-    ],
-
-    "AI Engineer": [
-        "Python",
-        "Machine Learning",
-        "Deep Learning",
-        "TensorFlow",
-        "PyTorch",
-        "NLP",
-        "Computer Vision",
-        "Docker",
-        "FastAPI"
-    ],
-
-    "Software Engineer": [
-        "Python",
-        "SQL",
-        "Git",
-        "Django",
-        "FastAPI",
-        "Docker"
-    ]
+    "Data Scientist": ["Python", "SQL", "Machine Learning", "Deep Learning", "Pandas", "NumPy", "Statistics", "Power BI", "Scikit-Learn"],
+    "Data Analyst": ["Python", "SQL", "Excel", "Power BI", "Pandas", "NumPy", "Statistics", "Data Cleaning", "Tableau"],
+    "Machine Learning Engineer": ["Python", "SQL", "Machine Learning", "Deep Learning", "TensorFlow", "PyTorch", "Docker", "FastAPI", "Git", "MLOps"],
+    "AI Engineer": ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "PyTorch", "NLP", "Computer Vision", "Docker", "FastAPI", "LLMs"],
+    "Software Engineer": ["Python", "SQL", "Git", "Django", "FastAPI", "Docker", "System Design", "REST API", "Data Structures"],
+    "Data Engineer": ["Python", "SQL", "PySpark", "Apache Spark", "Airflow", "ETL", "Kafka", "Data Modeling", "PostgreSQL", "Snowflake"],
+    "ML Engineer": ["Python", "Machine Learning", "PyTorch", "TensorFlow", "Feature Stores", "MLflow", "Kubernetes", "Docker", "Model Serving"],
+    "MLOps Engineer": ["Python", "Docker", "Kubernetes", "CI/CD", "MLflow", "Kubeflow", "Prometheus", "Terraform", "Model Monitoring"],
+    "AI/ML Engineer": ["Python", "Deep Learning", "PyTorch", "TensorFlow", "NLP", "Computer Vision", "Scikit-Learn", "FastAPI", "Git"],
+    "NLP Engineer": ["Python", "NLP", "Transformers", "PyTorch", "Hugging Face", "BERT", "LLMs", "Tokenization", "Text Classification"],
+    "Computer Vision Engineer": ["Python", "OpenCV", "PyTorch", "TensorFlow", "CNN", "YOLO", "Image Segmentation", "Object Detection"],
+    "Generative AI Engineer": ["Python", "LLMs", "LangChain", "LlamaIndex", "RAG", "Embeddings", "Vector Databases", "Prompt Engineering", "Fine-tuning"],
+    "LLM Engineer": ["Python", "Transformers", "PyTorch", "Hugging Face", "PEFT/LoRA", "vLLM", "Quantization", "Vector Search", "RAG"],
+    "AI Product Engineer": ["Python", "TypeScript", "FastAPI", "Next.js", "LangChain", "Vector DB", "System Design", "UX/UI", "Product Analytics"],
+    "Research Engineer": ["Python", "PyTorch", "Mathematics", "Linear Algebra", "Optimization", "Paper Implementation", "Distributed Training"],
+    "Business Intelligence Analyst": ["SQL", "Power BI", "Tableau", "Excel", "Data Modeling", "DAX", "Business Metrics", "Dashboard Design"],
+    "Business Analyst": ["SQL", "Excel", "Requirements Gathering", "Process Modeling", "Agile/Scrum", "Data Visualization", "Jira"],
+    "BI Developer": ["SQL", "Power BI", "SSIS", "SSAS", "ETL", "Data Warehousing", "DAX", "T-SQL", "Tableau"],
+    "Analytics Engineer": ["SQL", "dbt", "Snowflake", "BigQuery", "Data Modeling", "Git", "Looker", "Python", "ETL"],
+    "Data Architect": ["Data Modeling", "SQL", "System Architecture", "Snowflake", "Data Warehousing", "Cloud Architecture", "Governance", "Big Data"],
+    "Cloud Data Engineer": ["Python", "SQL", "AWS", "Azure", "GCP", "Snowflake", "Redshift", "Terraform", "Serverless ETL"],
+    "Big Data Engineer": ["Java", "Scala", "Python", "Hadoop", "Spark", "Hive", "Kafka", "HBase", "Distributed Systems"],
+    "Python Developer": ["Python", "FastAPI", "Django", "Flask", "SQL", "Asyncio", "Unit Testing", "Docker", "Git"],
+    "Backend Developer": ["Node.js", "Python", "Go", "SQL", "PostgreSQL", "MongoDB", "REST API", "Microservices", "System Design", "Redis"],
+    "Full Stack Developer": ["React", "Next.js", "TypeScript", "Node.js", "Python", "PostgreSQL", "CSS", "Tailwind", "REST API"],
+    "DevOps Engineer": ["Docker", "Kubernetes", "Linux", "Bash", "CI/CD", "Terraform", "AWS", "Ansible", "Prometheus"],
+    "Cloud Engineer": ["AWS", "Azure", "GCP", "Terraform", "Networking", "IAM", "Kubernetes", "Linux", "Serverless"],
+    "Software Development Engineer": ["Java", "C++", "Python", "Data Structures", "Algorithms", "Object-Oriented Design", "SQL", "System Design"],
+    "QA Automation Engineer": ["Python", "Selenium", "Playwright", "pytest", "CI/CD", "API Testing", "Postman", "Git"],
+    "Database Developer": ["SQL", "PostgreSQL", "MySQL", "T-SQL", "PL/SQL", "Indexing", "Query Optimization", "Stored Procedures"],
+    "SQL Developer": ["SQL", "PostgreSQL", "T-SQL", "Complex Joins", "Window Functions", "Query Performance Tuning", "Database Design"],
+    "Prompt Engineer": ["Prompting Strategies", "Few-Shot Learning", "LLM Evaluation", "Python", "RAG Systems", "Guardrails", "Text Generation"],
+    "AI Solutions Engineer": ["Python", "FastAPI", "Cloud AI APIs", "RAG", "System Integration", "Client Solutions", "Solution Architecture"],
+    "Applied Scientist": ["Python", "Machine Learning", "Statistics", "A/B Testing", "Experimental Design", "PyTorch", "Algorithms"]
 }
 
-
 def get_required_skills(role):
-
-    return ROLE_SKILLS.get(role, [])
+    return ROLE_SKILLS.get(role, ["Python", "SQL", "Problem Solving"])

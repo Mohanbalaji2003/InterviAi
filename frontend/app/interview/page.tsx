@@ -1,27 +1,104 @@
 "use client";
 
-import { ArrowRight, BriefcaseBusiness, Clock3, FileText, SlidersHorizontal, Sparkles, Upload, Wand2 } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, Clock3, FileText, LoaderCircle, SlidersHorizontal, Sparkles, Wand2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { createInterview, fetchActiveProject, fetchActiveResume } from "@/lib/api";
 
-const roleOptions = ["Senior Full-Stack Engineer", "AI Engineer", "Platform Engineer", "Product Engineer"];
+const roleOptions = [
+  "Data Scientist",
+  "Data Analyst",
+  "Machine Learning Engineer",
+  "AI Engineer",
+  "Software Engineer",
+  "Data Engineer",
+  "ML Engineer",
+  "MLOps Engineer",
+  "AI/ML Engineer",
+  "NLP Engineer",
+  "Computer Vision Engineer",
+  "Generative AI Engineer",
+  "LLM Engineer",
+  "AI Product Engineer",
+  "Research Engineer",
+  "Business Intelligence Analyst",
+  "Business Analyst",
+  "BI Developer",
+  "Analytics Engineer",
+  "Data Architect",
+  "Cloud Data Engineer",
+  "Big Data Engineer",
+  "Python Developer",
+  "Backend Developer",
+  "Full Stack Developer",
+  "DevOps Engineer",
+  "Cloud Engineer",
+  "Software Development Engineer",
+  "QA Automation Engineer",
+  "Database Developer",
+  "SQL Developer",
+  "Prompt Engineer",
+  "AI Solutions Engineer",
+  "Applied Scientist",
+];
+
 const candidateTypes = ["Experienced", "Mid-level", "Junior", "Career switcher"];
 const experienceOptions = ["0-2 years", "2-5 years", "5-8 years", "8+ years"];
-const difficultyOptions = ["Adaptive", "Balanced", "Deep technical", "Expert"];
+const difficultyOptions = ["Easy", "Medium", "Hard"];
 
 export default function InterviewSetupPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    role: "Senior Full-Stack Engineer",
+    role: "Data Scientist",
     candidateType: "Experienced",
-    experience: "5-8 years",
-    difficulty: "Adaptive",
+    experience: "3-5 years",
+    difficulty: "Medium",
     questions: 10,
     projectDefense: true,
   });
+
+  const [activeResume, setActiveResume] = useState<string | null>(null);
+  const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadInputs() {
+      try {
+        const [res, proj] = await Promise.all([fetchActiveResume(), fetchActiveProject()]);
+        if (res.active && res.resume) setActiveResume(res.resume.filename);
+        if (proj.active && proj.project) setActiveProject(proj.project.name);
+      } catch {
+        // Ignored
+      }
+    }
+    void loadInputs();
+  }, []);
+
+  async function handleCreateAssessment() {
+    setError("");
+    setCreating(true);
+    try {
+      const result = await createInterview({
+        job_role: form.role,
+        total_questions: form.questions,
+        candidate_type: form.candidateType,
+        experience_years: form.experience,
+        starting_difficulty: form.difficulty,
+        use_project_defense: form.projectDefense,
+      });
+
+      sessionStorage.setItem("current_interview_id", String(result.id));
+      router.push(`/interview/session?id=${result.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create assessment.");
+      setCreating(false);
+    }
+  }
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.3fr,0.7fr]">
@@ -32,7 +109,7 @@ export default function InterviewSetupPage() {
 
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             <label className="space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Target role</span>
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Target job role ({roleOptions.length} available)</span>
               <select
                 value={form.role}
                 onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
@@ -88,7 +165,7 @@ export default function InterviewSetupPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Question count</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{form.questions}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{form.questions} questions</p>
               </div>
 
               <input
@@ -114,25 +191,31 @@ export default function InterviewSetupPage() {
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-dashed border-white/15 bg-slate-950/40 p-4">
-              <div className="flex items-center gap-3 text-slate-200">
-                <Upload size={16} className="text-violet-300" />
-                <span className="font-medium">Resume upload</span>
+            <div className={`rounded-2xl border p-4 ${activeResume ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-dashed border-white/15 bg-slate-950/40'}`}>
+              <div className="flex items-center justify-between text-slate-200">
+                <span className="font-medium text-white">Resume upload</span>
+                <Link href="/resume" className="text-xs text-violet-400 hover:underline">Manage</Link>
               </div>
-              <p className="mt-3 text-sm text-slate-400">No file selected yet.</p>
+              <p className="mt-2 text-xs text-slate-400">
+                {activeResume ? `Active: ${activeResume}` : "No resume active. Upload resume to ground interview questions."}
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-dashed border-white/15 bg-slate-950/40 p-4">
-              <div className="flex items-center gap-3 text-slate-200">
-                <FileText size={16} className="text-violet-300" />
-                <span className="font-medium">Project files</span>
+            <div className={`rounded-2xl border p-4 ${activeProject ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-dashed border-white/15 bg-slate-950/40'}`}>
+              <div className="flex items-center justify-between text-slate-200">
+                <span className="font-medium text-white">Project defense RAG</span>
+                <Link href="/projects" className="text-xs text-amber-400 hover:underline">Manage</Link>
               </div>
-              <p className="mt-3 text-sm text-slate-400">Support a defense review.</p>
+              <p className="mt-2 text-xs text-slate-400">
+                {activeProject ? `Active: ${activeProject}` : "No project active. Upload project to enable project defense."}
+              </p>
             </div>
           </div>
 
           <label className="mt-6 flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm text-slate-200">
-            <span className="inline-flex items-center gap-2"><Wand2 size={16} className="text-violet-300" /> Project Defense toggle</span>
+            <span className="inline-flex items-center gap-2">
+              <Wand2 size={16} className="text-violet-300" /> Project Defense & Resume Grounding
+            </span>
             <input
               type="checkbox"
               checked={form.projectDefense}
@@ -150,25 +233,40 @@ export default function InterviewSetupPage() {
         <div className="mt-5 space-y-4 text-sm text-slate-300">
           <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
             <span className="inline-flex items-center gap-2"><BriefcaseBusiness size={15} className="text-violet-300" /> Role</span>
-            <span>{form.role}</span>
+            <span className="font-medium text-white">{form.role}</span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
             <span className="inline-flex items-center gap-2"><SlidersHorizontal size={15} className="text-violet-300" /> Difficulty</span>
-            <span>{form.difficulty}</span>
+            <span className="font-medium text-white">{form.difficulty}</span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
             <span className="inline-flex items-center gap-2"><Clock3 size={15} className="text-violet-300" /> Length</span>
-            <span>{form.questions} questions</span>
+            <span className="font-medium text-white">{form.questions} questions</span>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
             <span className="inline-flex items-center gap-2"><Sparkles size={15} className="text-violet-300" /> Project defense</span>
-            <span>{form.projectDefense ? "Enabled" : "Disabled"}</span>
+            <span className="font-medium text-white">{form.projectDefense ? "Enabled" : "Disabled"}</span>
           </div>
         </div>
 
-        <Button type="button" size="lg" className="mt-6 w-full" onClick={() => router.push('/interview/session')}>
-          Create Assessment
-          <ArrowRight size={16} />
+        {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
+
+        <Button
+          type="button"
+          size="lg"
+          className="mt-6 w-full"
+          onClick={handleCreateAssessment}
+          disabled={creating}
+        >
+          {creating ? (
+            <>
+              <LoaderCircle size={16} className="animate-spin" /> Creating Assessment...
+            </>
+          ) : (
+            <>
+              Start Adaptive Assessment <ArrowRight size={16} />
+            </>
+          )}
         </Button>
       </Card>
     </div>

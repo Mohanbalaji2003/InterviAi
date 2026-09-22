@@ -2,80 +2,99 @@
 
 import { AlertTriangle, Check, LoaderCircle, Save, TimerReset } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 import { AnswerPanel } from "@/components/interview/AnswerPanel";
 import { InterviewProgress } from "@/components/interview/InterviewProgress";
 import { QuestionCard } from "@/components/interview/QuestionCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-
-const questions = [
-  {
-    difficulty: "Medium",
-    type: "mcq",
-    question: "Which HTTP status code best signals a successful resource creation request in a REST API?",
-    options: ["200 OK", "201 Created", "202 Accepted", "204 No Content"],
-  },
-  {
-    difficulty: "High",
-    type: "descriptive",
-    question: "Explain how you would design a rate-limited API that prevents abuse without harming legitimate users during traffic spikes.",
-    options: [],
-  },
-  {
-    difficulty: "High",
-    type: "mcq",
-    question: "In a relational database, which indexing strategy is most effective for a frequently queried `WHERE status = ? AND created_at > ?` filter?",
-    options: ["Single-column index on status", "Composite index on (status, created_at)", "Hash index on created_at", "Full-text index"],
-  },
-  {
-    difficulty: "Medium",
-    type: "descriptive",
-    question: "Describe the trade-offs between optimistic and pessimistic locking in a distributed system that handles concurrent order updates.",
-    options: [],
-  },
-  {
-    difficulty: "Medium",
-    type: "mcq",
-    question: "What is the primary benefit of using asynchronous background workers for a long-running report generation task?",
-    options: ["Improves local CPU performance", "Reduces database locks", "Prevents user interaction blocking and improves resilience", "Eliminates the need for retries"],
-  },
-];
+import { fetchNextQuestion, finishInterview, submitAnswer, type NextQuestionResponse } from "@/lib/api";
 
 export default function LiveInterviewPage() {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const searchParams = useSearchParams();
+  const [interviewId, setInterviewId] = useState<number | null>(null);
+
+  const [questionData, setQuestionData] = useState<NextQuestionResponse | null>(null);
+  const [loadingQuestion, setLoadingQuestion] = useState(true);
   const [answer, setAnswer] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
 
-  const question = questions[currentIndex];
-  const nextQuestionNumber = currentIndex + 1;
+  useEffect(() => {
+    const idFromParam = searchParams.get("id");
+    const idFromSession = typeof window !== "undefined" ? sessionStorage.getItem("current_interview_id") : null;
+    const finalId = idFromParam ? Number(idFromParam) : idFromSession ? Number(idFromSession) : null;
+    setInterviewId(finalId);
+  }, [searchParams]);
 
-  const canSubmit = useMemo(() => {
-    if (question.type === "mcq") return Boolean(answer);
-    return answer.trim().length > 30;
-  }, [answer, question.type]);
-
-  const handleSubmit = () => {
-    if (!canSubmit) {
-      setError("Add a complete answer before submitting this response.");
-      return;
+  const loadQuestion = useCallback(async (id: number) => {
+    setLoadingQuestion(true);
+    setError(null);
+    try {
+      const res = await fetchNextQuestion(id);
+      if (res.finished) {
+        await finishInterview(id);
+        setCompleted(true);
+      } else {
+        setQuestionData(res);
+        setAnswer("");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load question.");
+    } finally {
+      setLoadingQuestion(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (interviewId) {
+      void loadQuestion(interviewId);
+    }
+  }, [interviewId, loadQuestion]);
+
+  const currentQ = questionData?.question;
+  const currentNum = questionData?.question_number ?? 1;
+  const totalNum = questionData?.total_questions ?? 10;
+
+  const canSubmit = Boolean(
+    answer.trim().length > 0 &&
+      (currentQ?.type !== "MCQ" || Boolean(answer))
+  );
+
+  const handleSubmit = async () => {
+    if (!interviewId || !currentQ || !canSubmit) return;
 
     setIsSubmitting(true);
     setError(null);
 
-    window.setTimeout(() => {
-      if (currentIndex === questions.length - 1) {
+    try {
+      await submitAnswer(interviewId, {
+        question_number: currentNum,
+        question_type: currentQ.type,
+        difficulty: currentQ.difficulty,
+        topic: currentQ.topic,
+        concept: currentQ.concept,
+        question_text: currentQ.question,
+        answer_text: answer,
+        options: currentQ.options,
+        correct_answer: currentQ.correct_answer,
+        explanation: currentQ.explanation,
+      });
+
+      if (currentNum >= totalNum) {
+        await finishInterview(interviewId);
         setCompleted(true);
       } else {
-        setCurrentIndex((value) => value + 1);
-        setAnswer("");
+        await loadQuestion(interviewId);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit answer.");
+    } finally {
       setIsSubmitting(false);
-    }, 700);
+    }
   };
 
   if (completed) {
@@ -88,18 +107,42 @@ export default function LiveInterviewPage() {
           </div>
 
           <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Your interview has been submitted.</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-300">The system is evaluating your responses internally and will generate a structured readiness and evidence report.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            The system evaluated your responses internally and has generated your isolated Candidate Intelligence Report.
+          </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link href="/reports">
-              <Button type="button" size="lg">View report</Button>
+              <Button type="button" size="lg">View Candidate Intelligence Report</Button>
             </Link>
             <Link href="/interview">
-              <Button type="button" variant="secondary" size="lg">Create another</Button>
+              <Button type="button" variant="secondary" size="lg">Start another assessment</Button>
             </Link>
           </div>
         </Card>
       </div>
+    );
+  }
+
+  if (loadingQuestion && !questionData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <LoaderCircle size={32} className="animate-spin text-violet-400" />
+        <p className="text-sm text-slate-300 font-medium">Generating candidate & role-specific question...</p>
+      </div>
+    );
+  }
+
+  if (!interviewId) {
+    return (
+      <Card className="p-6 text-center space-y-4">
+        <AlertTriangle size={32} className="mx-auto text-amber-400" />
+        <h3 className="text-xl font-semibold text-white">No active interview session found</h3>
+        <p className="text-sm text-slate-400">Please start a new assessment session from the interview setup page.</p>
+        <Link href="/interview">
+          <Button type="button" size="lg">Configure Interview</Button>
+        </Link>
+      </Card>
     );
   }
 
@@ -110,25 +153,39 @@ export default function LiveInterviewPage() {
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 text-sm font-semibold text-white">I</div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">InterviAI</p>
-              <p className="mt-1 text-sm text-slate-300">Question {nextQuestionNumber} / {questions.length}</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">InterviAI Adaptive Assessment</p>
+              <p className="mt-1 text-sm text-slate-300">Question {currentNum} / {totalNum}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-slate-400">
-            <span className="inline-flex items-center gap-1.5"><Save size={13} className="text-emerald-300" /> Autosave on</span>
-            <span className="inline-flex items-center gap-1.5"><TimerReset size={13} className="text-violet-300" /> 12s ago</span>
+            <span className="inline-flex items-center gap-1.5"><Save size={13} className="text-emerald-300" /> Grounded RAG</span>
+            <span className="inline-flex items-center gap-1.5"><TimerReset size={13} className="text-violet-300" /> Session active</span>
           </div>
         </div>
 
         <div className="mt-4">
-          <InterviewProgress current={nextQuestionNumber} total={questions.length} />
+          <InterviewProgress current={currentNum} total={totalNum} />
         </div>
       </Card>
 
-      <QuestionCard index={nextQuestionNumber} total={questions.length} difficulty={question.difficulty} question={question.question} />
+      {currentQ ? (
+        <>
+          <QuestionCard
+            index={currentNum}
+            total={totalNum}
+            difficulty={currentQ.difficulty || "Medium"}
+            question={currentQ.question}
+          />
 
-      <AnswerPanel mode={question.type as "mcq" | "descriptive"} answer={answer} setAnswer={setAnswer} options={question.options} />
+          <AnswerPanel
+            mode={currentQ.type.toLowerCase() as "mcq" | "descriptive"}
+            answer={answer}
+            setAnswer={setAnswer}
+            options={currentQ.options || []}
+          />
+        </>
+      ) : null}
 
       {error ? (
         <div className="flex items-start gap-3 rounded-2xl border border-rose-500/15 bg-rose-500/5 px-4 py-3 text-sm text-rose-200">
@@ -138,13 +195,20 @@ export default function LiveInterviewPage() {
       ) : null}
 
       <div className="flex flex-col justify-between gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
-        <div className="text-sm text-slate-400">No per-question scoring. Evaluation remains internal.</div>
+        <div className="text-sm text-slate-400">
+          Adaptive questions adapt based on your performance and candidate evidence.
+        </div>
 
-        <Button type="button" size="lg" onClick={handleSubmit} disabled={isSubmitting || !canSubmit} className="min-w-[180px]">
+        <Button
+          type="button"
+          size="lg"
+          onClick={handleSubmit}
+          disabled={isSubmitting || !canSubmit}
+          className="min-w-[180px]"
+        >
           {isSubmitting ? (
             <>
-              <LoaderCircle size={16} className="animate-spin" />
-              Submitting...
+              <LoaderCircle size={16} className="animate-spin" /> Submitting...
             </>
           ) : (
             "Submit Answer"
