@@ -7,23 +7,31 @@ export type AuthUser = {
 };
 
 async function authRequest(path: string, payload?: Record<string, string>) {
-  const response = await fetch(`${API_URL}${path}`, {
-    method: payload ? "POST" : "GET",
-    headers: payload ? { "Content-Type": "application/json" } : undefined,
-    credentials: "include",
-    body: payload ? JSON.stringify(payload) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-  const result = (await response.json().catch(() => ({}))) as {
-    user?: AuthUser;
-    detail?: string;
-  };
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method: payload ? "POST" : "GET",
+      headers: payload ? { "Content-Type": "application/json" } : undefined,
+      credentials: "include",
+      body: payload ? JSON.stringify(payload) : undefined,
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    throw new Error(result.detail || "Authentication request failed.");
+    const result = (await response.json().catch(() => ({}))) as {
+      user?: AuthUser;
+      detail?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(result.detail || "Authentication request failed.");
+    }
+
+    return result;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return result;
 }
 
 export async function login(email: string, password: string) {

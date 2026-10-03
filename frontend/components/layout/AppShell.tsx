@@ -22,14 +22,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     let mounted = true;
-    void fetchCurrentUser().then((user) => {
-      if (!mounted) return;
-      if (!user) {
+    void fetchCurrentUser()
+      .then((user) => {
+        if (!mounted) return;
+        if (!user) {
+          setCheckingAuth(false);
+          router.replace("/login");
+          return;
+        }
+        setCheckingAuth(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCheckingAuth(false);
         router.replace("/login");
-        return;
-      }
-      setCheckingAuth(false);
-    });
+      });
 
     return () => {
       mounted = false;
