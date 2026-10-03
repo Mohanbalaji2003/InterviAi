@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, LoaderCircle, Save, TimerReset } from "lucide-react";
+import { AlertTriangle, Check, Lightbulb, LoaderCircle, Save, TimerReset, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -23,6 +23,9 @@ export default function LiveInterviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
 
+  // Recruiter Hint Modal / State
+  const [hint, setHint] = useState<string | null>(null);
+
   useEffect(() => {
     const idFromParam = searchParams.get("id");
     const idFromSession = typeof window !== "undefined" ? sessionStorage.getItem("current_interview_id") : null;
@@ -33,6 +36,7 @@ export default function LiveInterviewPage() {
   const loadQuestion = useCallback(async (id: number) => {
     setLoadingQuestion(true);
     setError(null);
+    setHint(null);
     try {
       const res = await fetchNextQuestion(id);
       if (res.finished) {
@@ -63,6 +67,15 @@ export default function LiveInterviewPage() {
     answer.trim().length > 0 &&
       (currentQ?.type !== "MCQ" || Boolean(answer))
   );
+
+  const handleGetHint = () => {
+    if (!currentQ) return;
+    if (currentQ.explanation) {
+      setHint(`Recruiter Guidance: Focus on ${currentQ.topic || 'the core concept'}. Key principle: ${currentQ.explanation.slice(0, 140)}...`);
+    } else {
+      setHint(`Recruiter Guidance: State your assumptions clearly, discuss time/space complexity trade-offs, and mention failure scenarios for ${currentQ.topic || 'this question'}.`);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!interviewId || !currentQ || !canSubmit) return;
@@ -99,24 +112,24 @@ export default function LiveInterviewPage() {
 
   if (completed) {
     return (
-      <div className="mx-auto max-w-2xl">
-        <Card className="p-6 sm:p-8">
+      <div className="mx-auto max-w-2xl py-8">
+        <Card className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-3 text-emerald-300">
-            <Check size={20} />
-            <span className="text-xs uppercase tracking-[0.22em]">Assessment complete</span>
+            <Check size={24} className="rounded-full bg-emerald-500/20 p-1 border border-emerald-500/30" />
+            <span className="text-xs uppercase tracking-[0.22em] font-semibold">Assessment Complete</span>
           </div>
 
-          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Your interview has been submitted.</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            The system evaluated your responses internally and has generated your isolated Candidate Intelligence Report.
+          <h2 className="text-3xl font-semibold tracking-[-0.04em] text-white">Your interview responses have been analyzed.</h2>
+          <p className="text-sm leading-6 text-slate-300">
+            Your Candidate Intelligence Report has been compiled against MNC FAANG technical benchmarks, including STAR frameworks and verification confidence metrics.
           </p>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row pt-2">
             <Link href="/reports">
-              <Button type="button" size="lg">View Candidate Intelligence Report</Button>
+              <Button type="button" size="lg" className="w-full sm:w-auto">View Candidate Intelligence Report</Button>
             </Link>
             <Link href="/interview">
-              <Button type="button" variant="secondary" size="lg">Start another assessment</Button>
+              <Button type="button" variant="secondary" size="lg" className="w-full sm:w-auto">Start another assessment</Button>
             </Link>
           </div>
         </Card>
@@ -127,18 +140,18 @@ export default function LiveInterviewPage() {
   if (loadingQuestion && !questionData) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <LoaderCircle size={32} className="animate-spin text-violet-400" />
-        <p className="text-sm text-slate-300 font-medium">Generating candidate & role-specific question...</p>
+        <LoaderCircle size={36} className="animate-spin text-violet-400" />
+        <p className="text-sm text-slate-300 font-medium">Generating adaptive role-specific question...</p>
       </div>
     );
   }
 
   if (!interviewId) {
     return (
-      <Card className="p-6 text-center space-y-4">
-        <AlertTriangle size={32} className="mx-auto text-amber-400" />
-        <h3 className="text-xl font-semibold text-white">No active interview session found</h3>
-        <p className="text-sm text-slate-400">Please start a new assessment session from the interview setup page.</p>
+      <Card className="p-8 text-center space-y-4 max-w-xl mx-auto my-8">
+        <AlertTriangle size={36} className="mx-auto text-amber-400" />
+        <h3 className="text-xl font-semibold text-white">No Active Session Found</h3>
+        <p className="text-sm text-slate-400">Please launch a new technical assessment session from the setup workspace.</p>
         <Link href="/interview">
           <Button type="button" size="lg">Configure Interview</Button>
         </Link>
@@ -147,7 +160,7 @@ export default function LiveInterviewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <Card className="p-4 sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
@@ -178,11 +191,19 @@ export default function LiveInterviewPage() {
             question={currentQ.question}
           />
 
+          {hint && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200 flex items-start gap-3 animate-fadeIn">
+              <Lightbulb size={18} className="text-amber-400 shrink-0 mt-0.5" />
+              <span>{hint}</span>
+            </div>
+          )}
+
           <AnswerPanel
             mode={currentQ.type.toLowerCase() as "mcq" | "descriptive"}
             answer={answer}
             setAnswer={setAnswer}
             options={currentQ.options || []}
+            onGetHint={handleGetHint}
           />
         </>
       ) : null}
@@ -195,8 +216,8 @@ export default function LiveInterviewPage() {
       ) : null}
 
       <div className="flex flex-col justify-between gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
-        <div className="text-sm text-slate-400">
-          Adaptive questions adapt based on your performance and candidate evidence.
+        <div className="text-xs text-slate-400">
+          Tip: You can use the Voice Mic or STAR template buttons to structure your answer.
         </div>
 
         <Button
