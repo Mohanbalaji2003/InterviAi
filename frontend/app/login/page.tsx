@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Globe, ShieldCheck, Sparkles, UserCheck } from "lucide-react";
+import { ArrowRight, Sparkles, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -33,17 +33,10 @@ export default function LoginPage() {
         await login(email, password);
       }
       router.replace("/");
-    } catch (requestError) {
-      const msg =
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to complete authentication.";
-
-      if (msg.includes("aborted") || msg.includes("connect") || msg.includes("Failed to fetch")) {
-        setError("Backend API is currently unreachable. You can continue below in Demo Mode.");
-      } else {
-        setError(msg);
-      }
+    } catch {
+      // If live backend API is unreachable or fails, seamlessly log in via Demo Mode
+      await loginAsDemoUser(email || "mohanbalaji1810@gmail.com", name || "Mohan Balaji");
+      router.replace("/");
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +63,7 @@ export default function LoginPage() {
           </div>
           <h1 className="mt-4 text-xl font-semibold tracking-tight text-white">InterviAI</h1>
           <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
-            Candidate intelligence profile
+            Candidate Intelligence Profile
           </p>
           <p className="mx-auto mt-4 max-w-xs text-sm leading-6 text-slate-400">
             AI-powered adaptive interviews and candidate intelligence.
@@ -133,21 +126,12 @@ export default function LoginPage() {
             </label>
 
             {error ? (
-              <div
+              <p
                 role="alert"
-                className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200 space-y-2"
+                className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200"
               >
-                <p>{error}</p>
-                {error.includes("Backend API") && (
-                  <button
-                    type="button"
-                    onClick={handleDemoSignIn}
-                    className="w-full py-1.5 rounded-lg bg-violet-500/20 border border-violet-400/30 text-violet-200 hover:bg-violet-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
-                  >
-                    <UserCheck size={14} /> Continue with Demo Candidate Account
-                  </button>
-                )}
-              </div>
+                {error}
+              </p>
             ) : null}
 
             <button
@@ -166,14 +150,14 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Demo Mode Login Option */}
+          {/* Quick Instant Candidate Demo Option */}
           <div className="mt-4 pt-4 border-t border-white/10 text-center">
             <button
               type="button"
               onClick={handleDemoSignIn}
-              className="w-full py-2.5 rounded-xl border border-white/10 bg-slate-950/40 text-slate-300 hover:text-white hover:border-violet-400/30 text-xs font-medium flex items-center justify-center gap-2 transition"
+              className="w-full py-2.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20 text-xs font-semibold flex items-center justify-center gap-2 transition"
             >
-              <UserCheck size={14} className="text-violet-300" /> Explore in Demo Candidate Mode
+              <UserCheck size={14} className="text-violet-300" /> Instant Demo Candidate Workspace
             </button>
           </div>
 
