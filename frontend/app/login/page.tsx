@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Globe, ShieldCheck, Sparkles, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
-import { fetchCurrentUser, login, register } from "@/lib/auth";
+import { fetchCurrentUser, login, loginAsDemoUser, register } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,15 +34,26 @@ export default function LoginPage() {
       }
       router.replace("/");
     } catch (requestError) {
-      setError(
+      const msg =
         requestError instanceof Error
           ? requestError.message
-          : "Unable to complete authentication.",
-      );
+          : "Unable to complete authentication.";
+
+      if (msg.includes("aborted") || msg.includes("connect") || msg.includes("Failed to fetch")) {
+        setError("Backend API is currently unreachable. You can continue below in Demo Mode.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
   }
+
+  const handleDemoSignIn = async () => {
+    setSubmitting(true);
+    await loginAsDemoUser(email || "mohanbalaji1810@gmail.com", name || "Mohan Balaji");
+    router.replace("/");
+  };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070b12] px-4 py-8 text-slate-100 sm:px-6">
@@ -52,7 +63,7 @@ export default function LoginPage() {
         <div className="login-grid" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[430px] animate-page-in">
+      <div className="relative z-10 w-full max-w-[440px] animate-page-in">
         <header className="mb-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-lg font-semibold text-white shadow-xl shadow-violet-950/40 animate-logo-in">
             I
@@ -61,20 +72,20 @@ export default function LoginPage() {
           <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
             Candidate intelligence profile
           </p>
-          <p className="mx-auto mt-5 max-w-xs text-sm leading-6 text-slate-400">
+          <p className="mx-auto mt-4 max-w-xs text-sm leading-6 text-slate-400">
             AI-powered adaptive interviews and candidate intelligence.
           </p>
         </header>
 
         <section className="rounded-[26px] border border-white/10 bg-[#0d121c]/90 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
-          <div className="mb-7">
-            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/10 text-violet-200">
+          <div className="mb-6">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/10 text-violet-200">
               <Sparkles size={18} />
             </div>
             <h2 className="text-2xl font-semibold tracking-[-0.04em] text-white">
               {mode === "login" ? "Welcome back" : "Create your profile"}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
+            <p className="mt-1.5 text-sm leading-6 text-slate-400">
               {mode === "login"
                 ? "Sign in to continue to your private workspace."
                 : "Create a secure profile for your interviews and reports."}
@@ -122,12 +133,21 @@ export default function LoginPage() {
             </label>
 
             {error ? (
-              <p
+              <div
                 role="alert"
-                className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200"
+                className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200 space-y-2"
               >
-                {error}
-              </p>
+                <p>{error}</p>
+                {error.includes("Backend API") && (
+                  <button
+                    type="button"
+                    onClick={handleDemoSignIn}
+                    className="w-full py-1.5 rounded-lg bg-violet-500/20 border border-violet-400/30 text-violet-200 hover:bg-violet-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <UserCheck size={14} /> Continue with Demo Candidate Account
+                  </button>
+                )}
+              </div>
             ) : null}
 
             <button
@@ -146,21 +166,31 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 border-t border-white/10 pt-5 text-center">
+          {/* Quick Demo Mode Login Option */}
+          <div className="mt-4 pt-4 border-t border-white/10 text-center">
+            <button
+              type="button"
+              onClick={handleDemoSignIn}
+              className="w-full py-2.5 rounded-xl border border-white/10 bg-slate-950/40 text-slate-300 hover:text-white hover:border-violet-400/30 text-xs font-medium flex items-center justify-center gap-2 transition"
+            >
+              <UserCheck size={14} className="text-violet-300" /> Explore in Demo Candidate Mode
+            </button>
+          </div>
+
+          <div className="mt-4 text-center">
             <button
               type="button"
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
                 setError("");
               }}
-              className="text-sm text-violet-300 transition hover:text-violet-200"
+              className="text-xs text-violet-300 transition hover:text-violet-200"
             >
               {mode === "login"
                 ? "New to InterviAI? Create an account"
                 : "Already have an account? Sign in"}
             </button>
           </div>
-
         </section>
       </div>
     </main>
