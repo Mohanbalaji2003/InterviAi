@@ -46,8 +46,16 @@ export default function DashboardPage() {
 
     void load();
 
+    const handleRefresh = () => {
+      void load();
+    };
+    window.addEventListener("interviai_auth_change", handleRefresh);
+    window.addEventListener("interviai_data_change", handleRefresh);
+
     return () => {
       isMounted = false;
+      window.removeEventListener("interviai_auth_change", handleRefresh);
+      window.removeEventListener("interviai_data_change", handleRefresh);
     };
   }, []);
 

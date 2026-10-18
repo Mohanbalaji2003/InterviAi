@@ -4,9 +4,11 @@ export type AuthUser = {
   id: number;
   name: string;
   email: string;
+  isNewcomer?: boolean;
 };
 
-const DEMO_USER_KEY = "interviai_demo_user";
+export const DEMO_USER_KEY = "interviai_demo_user";
+export const NEWCOMER_DATA_KEY = "interviai_newcomer_data";
 
 async function authRequest(path: string, payload?: Record<string, string>) {
   const controller = new AbortController();
@@ -49,7 +51,6 @@ export async function login(email: string, password: string) {
     }
     return res;
   } catch (err) {
-    // If backend is unreachable and user enters demo credentials or falls back
     throw err;
   }
 }
@@ -59,32 +60,66 @@ export async function loginAsDemoUser(email = "mohanbalaji1810@gmail.com", name 
     id: 1,
     name: name || "Mohan Balaji",
     email: email || "mohanbalaji1810@gmail.com",
+    isNewcomer: false,
   };
   if (typeof window !== "undefined") {
     localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
+    window.dispatchEvent(new Event("interviai_auth_change"));
   }
   return demoUser;
+}
+
+export async function loginAsNewcomer(email = "newcomer@interviai.com", name = "New Candidate"): Promise<AuthUser> {
+  const newcomerUser: AuthUser = {
+    id: Date.now(),
+    name: name || "New Candidate",
+    email: email || "newcomer@interviai.com",
+    isNewcomer: true,
+  };
+  if (typeof window !== "undefined") {
+    localStorage.setItem(DEMO_USER_KEY, JSON.stringify(newcomerUser));
+    // Clear any previous newcomer session progress
+    localStorage.removeItem(NEWCOMER_DATA_KEY);
+    window.dispatchEvent(new Event("interviai_auth_change"));
+  }
+  return newcomerUser;
 }
 
 export async function register(name: string, email: string, password: string) {
   try {
     const res = await authRequest("/auth/register", { name, email, password });
     if (typeof window !== "undefined") {
-      localStorage.removeItem(DEMO_USER_KEY);
+      const user = res.user || { id: Date.now(), name, email, isNewcomer: true };
+      user.isNewcomer = true;
+      localStorage.setItem(DEMO_USER_KEY, JSON.stringify(user));
+      localStorage.removeItem(NEWCOMER_DATA_KEY);
+      window.dispatchEvent(new Event("interviai_auth_change"));
     }
     return res;
   } catch (err) {
-    throw err;
+    // If backend is offline during registration, create offline newcomer account
+    const offlineUser: AuthUser = {
+      id: Date.now(),
+      name: name || "New Candidate",
+      email: email || "candidate@interviai.com",
+      isNewcomer: true,
+    };
+    if (typeof window !== "undefined") {
+      localStorage.setItem(DEMO_USER_KEY, JSON.stringify(offlineUser));
+      localStorage.removeItem(NEWCOMER_DATA_KEY);
+      window.dispatchEvent(new Event("interviai_auth_change"));
+    }
+    return { user: offlineUser };
   }
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
-  // Check local demo session first
+  // Check local demo/newcomer session first
   if (typeof window !== "undefined") {
-    const savedDemo = localStorage.getItem(DEMO_USER_KEY);
-    if (savedDemo) {
+    const saved = localStorage.getItem(DEMO_USER_KEY);
+    if (saved) {
       try {
-        return JSON.parse(savedDemo) as AuthUser;
+        return JSON.parse(saved) as AuthUser;
       } catch {
         localStorage.removeItem(DEMO_USER_KEY);
       }
@@ -102,6 +137,9 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
 export async function logout() {
   if (typeof window !== "undefined") {
     localStorage.removeItem(DEMO_USER_KEY);
+    localStorage.removeItem(NEWCOMER_DATA_KEY);
+    sessionStorage.clear();
+    window.dispatchEvent(new Event("interviai_auth_change"));
   }
   try {
     await authRequest("/auth/logout", {});

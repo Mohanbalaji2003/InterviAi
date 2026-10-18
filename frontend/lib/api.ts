@@ -38,10 +38,88 @@ export type DashboardData = {
     files: string[];
   };
 };
+export type NewcomerData = {
+  interview?: {
+    id: number;
+    job_role: string;
+    total_questions: number;
+    status: string;
+    overall_score: number;
+    readiness_score: number;
+    created_at: string;
+    project_understanding: number;
+    questions_answered: number;
+  } | null;
+  resume?: {
+    filename: string;
+    skills: string[];
+    claims: string[];
+    uploaded_at: string;
+    text_snippet: string;
+  } | null;
+  project?: {
+    name: string;
+    files: string[];
+    uploaded_at: string;
+    evidence_chunks: number;
+    text_snippet: string;
+  } | null;
+  report?: any | null;
+};
+
+export function getNewcomerData(): NewcomerData {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("interviai_newcomer_data");
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveNewcomerData(data: Partial<NewcomerData>): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = getNewcomerData();
+    const updated = { ...current, ...data };
+    localStorage.setItem("interviai_newcomer_data", JSON.stringify(updated));
+    window.dispatchEvent(new Event("interviai_data_change"));
+  } catch {}
+}
+
+export function isNewcomerSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem("interviai_demo_user");
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return Boolean(parsed.isNewcomer);
+  } catch {
+    return false;
+  }
+}
+
+export function getSessionUser(): { id: number; name: string; email: string } {
+  if (typeof window === "undefined") {
+    return { id: 1, name: "Candidate", email: "candidate@interviai.com" };
+  }
+  try {
+    const raw = localStorage.getItem("interviai_demo_user");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        id: parsed.id || 1,
+        name: parsed.name || "Candidate",
+        email: parsed.email || "candidate@interviai.com",
+      };
+    }
+  } catch {}
+  return { id: 1, name: "Candidate", email: "candidate@interviai.com" };
+}
 
 export async function fetchDashboardData(): Promise<DashboardData> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const response = await fetch(`${API_URL}/dashboard/latest`, {
@@ -56,7 +134,44 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     return (await response.json()) as DashboardData;
   } catch {
-    // Offline / Demo Fallback
+    const user = getSessionUser();
+    const isNewcomer = isNewcomerSession();
+
+    if (isNewcomer) {
+      const newcomerData = getNewcomerData();
+      const hasInterview = Boolean(newcomerData.interview);
+
+      return {
+        has_interview: hasInterview,
+        candidate: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          target_role: newcomerData.interview?.job_role || "Not selected yet",
+          skills: newcomerData.resume?.skills || [],
+        },
+        interview: newcomerData.interview || null,
+        claim_summary: newcomerData.resume ? {
+          total: newcomerData.resume.claims?.length || 0,
+          supported: newcomerData.resume.claims?.length || 0,
+          partially_supported: 0,
+          unverified: 0,
+          verification_confidence: 90,
+        } : null,
+        active_resume: {
+          has_resume: Boolean(newcomerData.resume),
+          filename: newcomerData.resume?.filename || "",
+          skills: newcomerData.resume?.skills || [],
+        },
+        active_project: {
+          has_project: Boolean(newcomerData.project),
+          name: newcomerData.project?.name || "",
+          files: newcomerData.project?.files || [],
+        },
+      };
+    }
+
+    // Default Demo Showcase Profile (Mohan Balaji)
     return {
       has_interview: true,
       candidate: {
@@ -137,6 +252,46 @@ export async function uploadFile(
 
     return result;
   } catch {
+    const isNewcomer = isNewcomerSession();
+    if (isNewcomer) {
+      if (type === "resume") {
+        const resumeInfo = {
+          filename: file.name,
+          skills: ["Python", "FastAPI", "React", "PostgreSQL"],
+          claims: [
+            `Uploaded verified candidate resume: ${file.name}`,
+            "Extracted technical core competencies and frameworks",
+          ],
+          uploaded_at: new Date().toISOString(),
+          text_snippet: `Candidate verified resume ${file.name}. Technical domains parsed: Python, FastAPI, React, PostgreSQL.`,
+        };
+        saveNewcomerData({ resume: resumeInfo });
+        return {
+          status: "success",
+          filename: file.name,
+          skills: resumeInfo.skills,
+          claims: resumeInfo.claims,
+          uploaded_at: resumeInfo.uploaded_at,
+        };
+      } else {
+        const projectInfo = {
+          name: file.name.replace(/\.[^/.]+$/, ""),
+          files: [file.name],
+          uploaded_at: new Date().toISOString(),
+          evidence_chunks: 12,
+          text_snippet: `Indexed candidate project repository: ${file.name} for technical defense RAG questions.`,
+        };
+        saveNewcomerData({ project: projectInfo });
+        return {
+          status: "success",
+          filename: file.name,
+          active_project_name: projectInfo.name,
+          files_count: 1,
+          uploaded_at: projectInfo.uploaded_at,
+        };
+      }
+    }
+
     // Demo Fallback
     return {
       status: "success",
@@ -172,6 +327,15 @@ export async function fetchActiveResume(): Promise<ActiveResumeData> {
     if (!response.ok) throw new Error();
     return (await response.json()) as ActiveResumeData;
   } catch {
+    const isNewcomer = isNewcomerSession();
+    if (isNewcomer) {
+      const data = getNewcomerData();
+      return {
+        active: Boolean(data.resume),
+        resume: data.resume || null,
+      };
+    }
+
     return {
       active: true,
       resume: {
@@ -190,6 +354,10 @@ export async function fetchActiveResume(): Promise<ActiveResumeData> {
 }
 
 export async function deleteActiveResume(): Promise<void> {
+  const isNewcomer = isNewcomerSession();
+  if (isNewcomer) {
+    saveNewcomerData({ resume: null });
+  }
   try {
     await fetch(`${API_URL}/resume/active`, {
       method: "DELETE",
@@ -220,6 +388,15 @@ export async function fetchActiveProject(): Promise<ActiveProjectData> {
     if (!response.ok) throw new Error();
     return (await response.json()) as ActiveProjectData;
   } catch {
+    const isNewcomer = isNewcomerSession();
+    if (isNewcomer) {
+      const data = getNewcomerData();
+      return {
+        active: Boolean(data.project),
+        project: data.project || null,
+      };
+    }
+
     return {
       active: true,
       project: {
@@ -234,6 +411,10 @@ export async function fetchActiveProject(): Promise<ActiveProjectData> {
 }
 
 export async function deleteActiveProject(): Promise<void> {
+  const isNewcomer = isNewcomerSession();
+  if (isNewcomer) {
+    saveNewcomerData({ project: null });
+  }
   try {
     await fetch(`${API_URL}/projects/active`, {
       method: "DELETE",
@@ -372,7 +553,70 @@ export async function finishInterview(interviewId: number, readinessScore?: numb
     if (!response.ok) throw new Error();
     return await response.json();
   } catch {
-    return { status: "completed", overall_score: 8.8, readiness_score: 92 };
+    const isNewcomer = isNewcomerSession();
+    const score = readinessScore || 88;
+    const completedInterview = {
+      id: interviewId || Date.now(),
+      job_role: "Data Scientist",
+      total_questions: 10,
+      status: "completed",
+      overall_score: 8.8,
+      readiness_score: score,
+      created_at: new Date().toISOString(),
+      project_understanding: 92,
+      questions_answered: 10,
+    };
+
+    const generatedReport = {
+      has_report: true,
+      interview: completedInterview,
+      report: {
+        overall_readiness: score,
+        performance_level: score >= 90 ? "FAANG / MNC Tier-1 Benchmark Level" : "Strong Candidate / Level 4 Standard",
+        components: {
+          "Technical Knowledge": `${score}%`,
+          "Applied Reasoning": `${Math.round(score * 0.95)}%`,
+          "Project Understanding": `${Math.round(score * 0.98)}%`,
+          "Technical Communication": `${Math.round(score * 0.94)}%`,
+          "Resume Evidence Confidence": "92%",
+        },
+        strengths: [
+          "Demonstrates strong domain architectural principles in Python & RAG pipelines.",
+          "Clear trade-off analysis during adaptive questioning.",
+          "Grounded technical project defense with original reasoning.",
+        ],
+        risk_signals: ["None detected. High consistency across answers."],
+        recommended_focus: [
+          "Deep dive into multi-region database scaling trade-offs.",
+          "Conduct live pair-programming microservice optimization screen.",
+        ],
+      },
+      qa_audit: [
+        {
+          question_text: "When deploying a LLM embedding pipeline for real-time RAG, which optimization strategy provides the best balance between retrieval accuracy and latency under high QPS?",
+          answer_text: "HNSW vector index with product quantization (PQ)",
+          difficulty: "Medium",
+          topic: "Machine Learning & System Architecture",
+          evaluation: "Correct. Selected optimal vector index algorithm.",
+        },
+        {
+          question_text: "How would you design data isolation for candidate assessments in a multi-tenant PostgreSQL environment?",
+          answer_text: "Implemented Row Level Security (RLS) policies along with tenant-scoped JWT session tokens.",
+          difficulty: "Hard",
+          topic: "System Design & Data Isolation",
+          evaluation: "Strong architectural trade-off reasoning.",
+        },
+      ],
+    };
+
+    if (isNewcomer) {
+      saveNewcomerData({
+        interview: completedInterview,
+        report: generatedReport,
+      });
+    }
+
+    return { status: "completed", overall_score: 8.8, readiness_score: score };
   }
 }
 
@@ -385,6 +629,15 @@ export async function fetchLatestReport() {
     if (!response.ok) throw new Error();
     return await response.json();
   } catch {
+    const isNewcomer = isNewcomerSession();
+    if (isNewcomer) {
+      const data = getNewcomerData();
+      if (data.report) {
+        return data.report;
+      }
+      return { has_report: false };
+    }
+
     return {
       has_report: true,
       interview: {

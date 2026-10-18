@@ -63,14 +63,18 @@ export function Sidebar({
           <Gauge size={14} className="text-violet-300" />
         </div>
 
-        <p className="mt-3 text-2xl font-semibold text-white">{Math.round(readiness)}%</p>
+        <p className="mt-3 text-2xl font-semibold text-white">
+          {readiness > 0 ? `${Math.round(readiness)}%` : "—"}
+        </p>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400 transition-all duration-700"
             style={{ width: `${Math.max(0, Math.min(100, readiness))}%` }}
           />
         </div>
-        <p className="mt-3 text-xs text-slate-400">Role alignment score</p>
+        <p className="mt-3 text-xs text-slate-400">
+          {readiness > 0 ? "Role alignment score" : "Awaiting first assessment"}
+        </p>
         <button
           type="button"
           onClick={onLogout}

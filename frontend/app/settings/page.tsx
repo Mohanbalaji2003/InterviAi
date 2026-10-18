@@ -1,17 +1,20 @@
 "use client";
 
-import { Bell, Check, Globe, LoaderCircle, Mic, MoonStar, RefreshCw, Save, ShieldCheck, Sparkles, User, Volume2, Zap } from "lucide-react";
+import { Bell, Check, Globe, LoaderCircle, LogOut, Mic, MoonStar, RefreshCw, Save, ShieldCheck, Sparkles, User, UserCheck, UserPlus, Volume2, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { fetchCurrentUser } from "@/lib/auth";
+import { fetchCurrentUser, logout, loginAsDemoUser, loginAsNewcomer } from "@/lib/auth";
 import { API_URL } from "@/lib/config";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [userName, setUserName] = useState("Mohan Balaji");
   const [userEmail, setUserEmail] = useState("mohan@example.com");
   const [targetRole, setTargetRole] = useState("Data Scientist");
+  const [isNewcomer, setIsNewcomer] = useState(false);
   const [difficultyMode, setDifficultyMode] = useState("Adaptive");
   const [defaultQuestions, setDefaultQuestions] = useState(10);
   
@@ -28,6 +31,7 @@ export default function SettingsPage() {
   const [testingApi, setTestingApi] = useState(false);
   const [apiLatency, setApiLatency] = useState<number | null>(null);
   const [apiStatus, setApiStatus] = useState<"connected" | "error" | "idle">("idle");
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     // Load persisted settings from localStorage
@@ -41,11 +45,12 @@ export default function SettingsPage() {
     if (savedMnc !== null) setMncMode(savedMnc === "true");
     if (savedVoice !== null) setVoiceMode(savedVoice === "true");
 
-    // Load actual user email if logged in
+    // Load actual user email and mode if logged in
     void fetchCurrentUser().then((u) => {
       if (u) {
-        setUserName(u.name || "Mohan Balaji");
-        setUserEmail(u.email || "candidate@interviai.com");
+        setUserName(u.name || (u.isNewcomer ? "New Candidate" : "Mohan Balaji"));
+        setUserEmail(u.email || (u.isNewcomer ? "newcomer@interviai.com" : "mohanbalaji1810@gmail.com"));
+        setIsNewcomer(Boolean(u.isNewcomer));
       }
     });
   }, []);
@@ -78,6 +83,28 @@ export default function SettingsPage() {
     } finally {
       setTestingApi(false);
     }
+  };
+
+  const handleLogout = async () => {
+    if (confirm("Are you sure you want to log out of InterviAI?")) {
+      setLoggingOut(true);
+      await logout();
+      router.replace("/login");
+    }
+  };
+
+  const handleSwitchToNewcomer = async () => {
+    await loginAsNewcomer("newcomer@interviai.com", "New Candidate");
+    setIsNewcomer(true);
+    setUserName("New Candidate");
+    setUserEmail("newcomer@interviai.com");
+  };
+
+  const handleSwitchToDemo = async () => {
+    await loginAsDemoUser("mohanbalaji1810@gmail.com", "Mohan Balaji");
+    setIsNewcomer(false);
+    setUserName("Mohan Balaji");
+    setUserEmail("mohanbalaji1810@gmail.com");
   };
 
   const handleClearCache = () => {
@@ -283,6 +310,78 @@ export default function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Account & Session Management Section */}
+      <Card className="p-5 sm:p-6 space-y-5 border border-white/10 bg-slate-900/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2">
+            <User className="text-violet-400" size={18} />
+            <div>
+              <p className="text-sm font-semibold text-white uppercase tracking-wider">Account & Session Management</p>
+              <p className="text-xs text-slate-400 mt-0.5">Manage your active authentication session and workspace mode</p>
+            </div>
+          </div>
+          <span className={`self-start sm:self-auto rounded-full px-3 py-1 text-xs font-medium border ${
+            isNewcomer
+              ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+              : "bg-violet-500/10 text-violet-300 border-violet-500/20"
+          }`}>
+            {isNewcomer ? "Newcomer Candidate (Blank Profile)" : "Showcase Mode (Mohan Balaji)"}
+          </span>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3.5 space-y-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Active User</span>
+            <p className="text-sm font-semibold text-white">{userName}</p>
+            <p className="text-xs text-slate-400 truncate">{userEmail}</p>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3.5 space-y-2">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Switch Candidate Mode</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSwitchToNewcomer}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                  isNewcomer
+                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200 font-semibold"
+                    : "border-white/10 bg-white/5 text-slate-300 hover:text-white"
+                }`}
+              >
+                Newcomer (Blank)
+              </button>
+              <button
+                type="button"
+                onClick={handleSwitchToDemo}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                  !isNewcomer
+                    ? "bg-violet-500/20 border-violet-500/40 text-violet-200 font-semibold"
+                    : "border-white/10 bg-white/5 text-slate-300 hover:text-white"
+                }`}
+              >
+                Demo (Mohan)
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3.5 flex flex-col justify-between space-y-2">
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-rose-400 font-semibold">Sign Out</span>
+              <p className="text-xs text-slate-400">End your session and return to the login screen</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/20 px-3.5 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/30 transition cursor-pointer disabled:opacity-60"
+            >
+              {loggingOut ? <LoaderCircle size={14} className="animate-spin" /> : <LogOut size={14} />}
+              {loggingOut ? "Signing out..." : "Log Out of InterviAI"}
+            </button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
