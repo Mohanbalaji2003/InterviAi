@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import fitz
-from fastapi import Cookie, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import Cookie, Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from database import (
     AuthSession,
     Candidate,
+    ChatMessage,
     Interview,
     InterviewQuestion,
     ResumeClaim,
@@ -29,7 +30,13 @@ from Skill_extractor import extract_skills
 from role_skills import get_required_skills
 from resume_claim_verifier import extract_resume_claims, verify_claims, get_claim_summary
 from project_defense_rag import ProjectDefenseRAG
-from gemini_service import generate_interview_question, evaluate_mcq, evaluate_descriptive_answer
+from gemini_service import (
+    generate_interview_question,
+    evaluate_mcq,
+    evaluate_descriptive_answer,
+    generate_chatbot_reply,
+    generate_personalized_prep_plan,
+)
 from fast_evaluator import evaluate_descriptive_answer_fast
 from fast_interview_bank import get_fast_question_bank
 from adaptive_engine import get_next_difficulty, get_next_question_type, get_next_focus
@@ -38,7 +45,7 @@ from concept_normalizer import normalize_concepts
 
 app = FastAPI(
     title="InterviAI API",
-    version="0.2.0",
+    version="0.3.0",
     description="Backend API for the InterviAI candidate assessment platform.",
 )
 
@@ -49,6 +56,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,7 +145,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
-def create_session(db: Session, user: User, response: Response, request: Request) -> None:
+def create_session(db: Session, user: User, response: Response, request: Request) -> str:
     raw_token = secrets.token_urlsafe(48)
     session = AuthSession(
         user_id=user.id,
@@ -145,26 +153,32 @@ def create_session(db: Session, user: User, response: Response, request: Request
         expires_at=datetime.utcnow() + timedelta(days=7),
     )
     db.add(session)
-    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
-    is_https = request.url.scheme == "https" or forwarded_proto == "https"
     response.set_cookie(
         key='interviai_session',
         value=raw_token,
         max_age=7 * 24 * 60 * 60,
         httponly=True,
-        secure=is_https,
-        samesite='none' if is_https else 'lax',
+        secure=True,
+        samesite='none',
     )
+    return raw_token
 
 
 def get_current_user(
+    authorization: Optional[str] = Header(default=None, alias='Authorization'),
     session_token: Optional[str] = Cookie(default=None, alias='interviai_session'),
     db: Session = Depends(get_db),
 ) -> User:
-    if not session_token:
+    raw_token = None
+    if authorization and authorization.startswith("Bearer "):
+        raw_token = authorization[7:].strip()
+    elif session_token:
+        raw_token = session_token.strip()
+
+    if not raw_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Authentication required.')
 
-    token_hash = hashlib.sha256(session_token.encode('utf-8')).hexdigest()
+    token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
     session = (
         db.query(AuthSession)
         .filter(AuthSession.token_hash == token_hash)
@@ -173,7 +187,10 @@ def get_current_user(
     if not session or session.expires_at <= datetime.utcnow():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Session expired. Please sign in again.')
 
-    return db.get(User, session.user_id)
+    user = db.get(User, session.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found.')
+    return user
 
 
 def get_or_create_candidate(db: Session, user: User) -> Candidate:
@@ -247,9 +264,9 @@ def register(
     db.flush()
 
     candidate.user_id = user.id
-    create_session(db, user, response, request)
+    token = create_session(db, user, response, request)
     db.commit()
-    return {'user': {'id': user.id, 'name': user.name, 'email': user.email}}
+    return {'token': token, 'user': {'id': user.id, 'name': user.name, 'email': user.email}}
 
 
 @app.post('/auth/login')
@@ -265,9 +282,9 @@ def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Incorrect email or password.')
 
     user.last_login_at = datetime.utcnow()
-    create_session(db, user, response, request)
+    token = create_session(db, user, response, request)
     db.commit()
-    return {'user': {'id': user.id, 'name': user.name, 'email': user.email}}
+    return {'token': token, 'user': {'id': user.id, 'name': user.name, 'email': user.email}}
 
 
 @app.get('/auth/me')
@@ -278,15 +295,23 @@ def me(user: User = Depends(get_current_user)):
 @app.post('/auth/logout')
 def logout(
     response: Response,
+    authorization: Optional[str] = Header(default=None, alias='Authorization'),
     session_token: Optional[str] = Cookie(default=None, alias='interviai_session'),
     db: Session = Depends(get_db),
 ):
-    if session_token:
-        token_hash = hashlib.sha256(session_token.encode('utf-8')).hexdigest()
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+    elif session_token:
+        token = session_token.strip()
+
+    if token:
+        token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
         db.query(AuthSession).filter(AuthSession.token_hash == token_hash).delete()
         db.commit()
     response.delete_cookie('interviai_session')
     return {'status': 'ok'}
+
 
 
 # ==========================================
@@ -710,7 +735,20 @@ def get_next_question(
     missing_skills = [s for s in req_skills if s not in cand_skills]
 
     # RAG evidence retrieval if available
-    project_evidence = candidate.active_project_text[:2000] if candidate.active_project_text else None
+    project_evidence = None
+    if candidate.active_project_text:
+        try:
+            rag = ProjectDefenseRAG()
+            rag.add_text(candidate.active_project_text, source=candidate.active_project_name or "Project")
+            rag.build_index()
+            retrieved = rag.retrieve(f"{interview.job_role} architecture and technical implementation", top_k=2)
+            if retrieved:
+                project_evidence = "\n---\n".join([r['text'] for r in retrieved])
+            else:
+                project_evidence = candidate.active_project_text[:2000]
+        except Exception:
+            project_evidence = candidate.active_project_text[:2000]
+
     resume_text = candidate.active_resume_text[:1500] if candidate.active_resume_text else None
 
     try:
@@ -727,7 +765,16 @@ def get_next_question(
             project_evidence=project_evidence,
             previous_questions=questions_asked,
         )
-    except Exception as e:
+        # Strict programmatic deduplication safeguard
+        gen_text = (q_data.get("question") or "").strip()
+        if gen_text in questions_asked or any(gen_text.lower() == p.strip().lower() for p in questions_asked):
+            fast_bank = get_fast_question_bank(interview.job_role)
+            unused_fast = [q for q in fast_bank if q.get("question") not in questions_asked]
+            if unused_fast:
+                q_data = unused_fast[0]
+            else:
+                q_data["question"] = f"{gen_text} (Phase {current_q_num}: Focus on scaling trade-offs)"
+    except Exception:
         fast_bank = get_fast_question_bank(interview.job_role)
         unused_fast = [q for q in fast_bank if q.get("question") not in questions_asked]
         if unused_fast:
@@ -847,12 +894,15 @@ def finish_interview(
     ])
 
     topic_perf = {}
+    weak_concepts = []
     for q in questions:
         t = q.topic or "Technical Knowledge"
         if t not in topic_perf:
             topic_perf[t] = []
         if q.score is not None:
             topic_perf[t].append(q.score)
+            if q.score < 7.0 and q.concept:
+                weak_concepts.append(q.concept)
 
     avg_topic_perf = {t: round(sum(s)/len(s), 1) for t, s in topic_perf.items() if s}
 
@@ -861,7 +911,7 @@ def finish_interview(
         'topic_performance': avg_topic_perf,
         'difficulty_performance': {'Medium': overall_score},
         'question_type_performance': {'Descriptive': overall_score},
-        'weakest_concepts': [],
+        'weakest_concepts': [[c, 6.0] for c in weak_concepts[:4]],
     }
 
     engine = CandidateIntelligenceEngine(
@@ -870,6 +920,17 @@ def finish_interview(
         role_readiness=interview.readiness_score,
     )
     report = engine.get_report()
+
+    # Generate actionable preparation plan and embed into report
+    prep_plan = generate_personalized_prep_plan(
+        job_role=interview.job_role,
+        overall_score=overall_score,
+        readiness_score=interview.readiness_score,
+        weak_concepts=weak_concepts,
+        topic_performance=avg_topic_perf,
+        candidate_skills=candidate.active_resume_skills or candidate.skills or [],
+    )
+    report['preparation_plan'] = prep_plan
     interview.report_data = report
 
     db.commit()
@@ -882,7 +943,100 @@ def finish_interview(
 
 
 # ==========================================
-# REPORTS ENDPOINT
+# INTERVIEW HISTORY & DETAIL ENDPOINTS
+# ==========================================
+
+@app.get('/interviews')
+def list_interviews(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    candidate = get_or_create_candidate(db, user)
+    interviews = (
+        db.query(Interview)
+        .filter(Interview.candidate_id == candidate.id)
+        .order_by(Interview.created_at.desc(), Interview.id.desc())
+        .all()
+    )
+    return {
+        'interviews': [
+            {
+                'id': i.id,
+                'job_role': i.job_role,
+                'total_questions': i.total_questions,
+                'status': i.status,
+                'overall_score': i.overall_score,
+                'readiness_score': i.readiness_score,
+                'created_at': i.created_at.isoformat() if i.created_at else None,
+                'questions_answered': len(i.questions),
+            }
+            for i in interviews
+        ]
+    }
+
+
+@app.get('/interviews/{interview_id}')
+def get_interview_detail(
+    interview_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    candidate = get_or_create_candidate(db, user)
+    interview = db.get(Interview, interview_id)
+    if not interview or (interview.candidate_id != candidate.id and interview.user_id != user.id):
+        raise HTTPException(status_code=404, detail="Interview not found.")
+
+    questions = (
+        db.query(InterviewQuestion)
+        .filter(InterviewQuestion.interview_id == interview.id)
+        .order_by(InterviewQuestion.question_number.asc())
+        .all()
+    )
+    claims = (
+        db.query(ResumeClaim)
+        .filter(ResumeClaim.interview_id == interview.id)
+        .all()
+    )
+    return {
+        'interview': {
+            'id': interview.id,
+            'job_role': interview.job_role,
+            'total_questions': interview.total_questions,
+            'status': interview.status,
+            'overall_score': interview.overall_score,
+            'readiness_score': interview.readiness_score,
+            'created_at': interview.created_at.isoformat() if interview.created_at else None,
+            'report': interview.report_data,
+        },
+        'questions': [
+            {
+                'question_number': q.question_number,
+                'question_type': q.question_type,
+                'difficulty': q.difficulty,
+                'topic': q.topic,
+                'concept': q.concept,
+                'question_text': q.question_text,
+                'answer_text': q.answer_text,
+                'score': q.score,
+                'evaluation': q.evaluation,
+            }
+            for q in questions
+        ],
+        'claims': [
+            {
+                'claim': c.claim,
+                'status': c.status,
+                'match_score': c.match_score,
+                'evidence': c.evidence,
+                'source': c.source,
+            }
+            for c in claims
+        ],
+    }
+
+
+# ==========================================
+# REPORTS ENDPOINTS
 # ==========================================
 
 @app.get('/reports/latest')
@@ -905,6 +1059,26 @@ def get_latest_report(
             'report': None,
         }
 
+    questions = (
+        db.query(InterviewQuestion)
+        .filter(InterviewQuestion.interview_id == interview.id)
+        .order_by(InterviewQuestion.question_number.asc())
+        .all()
+    )
+    qa_audit = [
+        {
+            'question_number': q.question_number,
+            'question_text': q.question_text,
+            'answer_text': q.answer_text,
+            'score': q.score,
+            'difficulty': q.difficulty,
+            'topic': q.topic,
+            'concept': q.concept,
+            'evaluation': q.evaluation,
+        }
+        for q in questions
+    ]
+
     return {
         'has_report': True,
         'interview': {
@@ -915,4 +1089,224 @@ def get_latest_report(
             'created_at': interview.created_at.isoformat() if interview.created_at else None,
         },
         'report': interview.report_data,
+        'qa_audit': qa_audit,
     }
+
+
+@app.get('/reports/{interview_id}')
+def get_interview_report(
+    interview_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    candidate = get_or_create_candidate(db, user)
+    interview = db.get(Interview, interview_id)
+    if not interview or (interview.candidate_id != candidate.id and interview.user_id != user.id):
+        raise HTTPException(status_code=404, detail="Interview not found.")
+
+    if not interview.report_data:
+        raise HTTPException(status_code=404, detail="Report not ready for this interview.")
+
+    questions = (
+        db.query(InterviewQuestion)
+        .filter(InterviewQuestion.interview_id == interview.id)
+        .order_by(InterviewQuestion.question_number.asc())
+        .all()
+    )
+    return {
+        'has_report': True,
+        'interview': {
+            'id': interview.id,
+            'job_role': interview.job_role,
+            'overall_score': interview.overall_score,
+            'readiness_score': interview.readiness_score,
+            'created_at': interview.created_at.isoformat() if interview.created_at else None,
+        },
+        'report': interview.report_data,
+        'qa_audit': [
+            {
+                'question_number': q.question_number,
+                'question_text': q.question_text,
+                'answer_text': q.answer_text,
+                'score': q.score,
+                'difficulty': q.difficulty,
+                'topic': q.topic,
+                'concept': q.concept,
+                'evaluation': q.evaluation,
+            }
+            for q in questions
+        ],
+    }
+
+
+@app.get('/reports/latest/prep-plan')
+def get_latest_prep_plan(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    candidate = get_or_create_candidate(db, user)
+    interview = (
+        db.query(Interview)
+        .filter(Interview.candidate_id == candidate.id)
+        .order_by(Interview.created_at.desc(), Interview.id.desc())
+        .first()
+    )
+
+    if not interview or not interview.report_data:
+        role = candidate.target_role or "Data Scientist / Software Engineer"
+        return generate_personalized_prep_plan(
+            job_role=role,
+            overall_score=7.0,
+            readiness_score=70.0,
+            weak_concepts=["System Scalability", "STAR Metrics"],
+            candidate_skills=candidate.active_resume_skills or candidate.skills or [],
+        )
+
+    report = interview.report_data
+    plan = report.get('preparation_plan')
+    if not plan:
+        plan = generate_personalized_prep_plan(
+            job_role=interview.job_role,
+            overall_score=interview.overall_score or 7.5,
+            readiness_score=interview.readiness_score or 75.0,
+            weak_concepts=report.get('recommended_focus', []),
+            topic_performance=report.get('components', {}),
+            candidate_skills=candidate.active_resume_skills or candidate.skills or [],
+        )
+        report['preparation_plan'] = plan
+        interview.report_data = report
+        db.commit()
+
+    return plan
+
+
+# ==========================================
+# INTERVIAI ASSISTANT CHATBOT ENDPOINTS
+# ==========================================
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=3000)
+
+
+@app.get('/chatbot/history')
+def get_chat_history(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == user.id)
+        .order_by(ChatMessage.created_at.asc())
+        .limit(50)
+        .all()
+    )
+    return {
+        'history': [
+            {
+                'id': str(m.id),
+                'role': m.role,
+                'message': m.message,
+                'citations': m.citations or [],
+                'created_at': m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in messages
+        ]
+    }
+
+
+@app.post('/chatbot/message')
+def send_chat_message(
+    payload: ChatMessageRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    candidate = get_or_create_candidate(db, user)
+    latest_interview = (
+        db.query(Interview)
+        .filter(Interview.candidate_id == candidate.id)
+        .order_by(Interview.created_at.desc(), Interview.id.desc())
+        .first()
+    )
+    report_summary = None
+    if latest_interview and latest_interview.report_data:
+        report_summary = {
+            'role': latest_interview.job_role,
+            'overall_score': latest_interview.overall_score,
+            'readiness_score': latest_interview.readiness_score,
+            'strengths': latest_interview.report_data.get('strengths', []),
+            'weak_areas': latest_interview.report_data.get('recommended_focus', []),
+        }
+
+    # RAG Evidence retrieval if project exists
+    project_evidence = None
+    citations = []
+    if candidate.active_project_text:
+        try:
+            rag = ProjectDefenseRAG()
+            rag.add_text(candidate.active_project_text, source=candidate.active_project_name or "Project")
+            rag.build_index()
+            retrieved = rag.retrieve(payload.message, top_k=2)
+            if retrieved:
+                project_evidence = "\n---\n".join([r['text'] for r in retrieved])
+                citations.extend([f"{r.get('source', 'Project')} (score: {round(r.get('score', 0.8), 2)})" for r in retrieved])
+        except Exception:
+            project_evidence = candidate.active_project_text[:1400]
+            citations.append(candidate.active_project_name or "Project documentation")
+
+    # Fetch recent conversation history from DB
+    prior_db_messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == user.id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(6)
+        .all()
+    )
+    history_context = [
+        {'role': m.role, 'message': m.message}
+        for m in reversed(prior_db_messages)
+    ]
+
+    result = generate_chatbot_reply(
+        user_message=payload.message,
+        chat_history=history_context,
+        candidate_name=candidate.name or user.name,
+        target_role=candidate.target_role or (latest_interview.job_role if latest_interview else "Software Engineer"),
+        resume_context=candidate.active_resume_text,
+        resume_skills=candidate.active_resume_skills or candidate.skills or [],
+        resume_claims=candidate.active_resume_claims or [],
+        project_name=candidate.active_project_name,
+        project_evidence=project_evidence,
+        report_summary=report_summary,
+    )
+
+    all_citations = list(dict.fromkeys(citations + result.get('citations', [])))
+
+    # Save user message & assistant reply
+    user_msg = ChatMessage(user_id=user.id, role='user', message=payload.message)
+    bot_msg = ChatMessage(
+        user_id=user.id,
+        role='assistant',
+        message=result.get('reply', ''),
+        citations=all_citations,
+    )
+    db.add(user_msg)
+    db.add(bot_msg)
+    db.commit()
+
+    return {
+        'status': 'ok',
+        'reply': result.get('reply', ''),
+        'citations': all_citations,
+        'suggested_followups': result.get('suggested_followups', []),
+    }
+
+
+@app.delete('/chatbot/history')
+def clear_chat_history(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(ChatMessage).filter(ChatMessage.user_id == user.id).delete()
+    db.commit()
+    return {'status': 'ok', 'message': 'Chat history cleared.'}
+

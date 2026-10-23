@@ -8,7 +8,8 @@ import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { fetchCurrentUser, logout } from "@/lib/auth";
-import { getNewcomerData } from "@/lib/api";
+import { fetchDashboardData } from "@/lib/api";
+import { HelpChatbot } from "@/components/chatbot/HelpChatbot";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,12 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           router.replace("/login");
           return;
         }
-        if (user.isNewcomer) {
-          const data = getNewcomerData();
-          setReadinessScore(data.interview?.readiness_score || 0);
-        } else {
-          setReadinessScore(91);
-        }
+        void fetchDashboardData()
+          .then((d) => setReadinessScore(d.interview?.readiness_score || 0))
+          .catch(() => setReadinessScore(0));
         setCheckingAuth(false);
       })
       .catch(() => {
@@ -49,12 +47,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const handleDataChange = () => {
       void fetchCurrentUser().then((u) => {
         if (!mounted) return;
-        if (u?.isNewcomer) {
-          const data = getNewcomerData();
-          setReadinessScore(data.interview?.readiness_score || 0);
-        } else {
-          setReadinessScore(91);
-        }
+        void fetchDashboardData()
+          .then((d) => setReadinessScore(d.interview?.readiness_score || 0))
+          .catch(() => setReadinessScore(0));
       });
     };
 
@@ -69,7 +64,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   if (pathname === "/login") {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        <HelpChatbot />
+      </>
+    );
   }
 
   if (checkingAuth) {
@@ -115,6 +115,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
         </div>
       </div>
+      {/* Universal Floating Help Chatbot */}
+      <HelpChatbot />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { fetchCurrentUser, logout, loginAsDemoUser, loginAsNewcomer } from "@/lib/auth";
+import { fetchCurrentUser, logout, loginAsDemoUser, loginAsNewcomer, getAuthToken } from "@/lib/auth";
 import { API_URL } from "@/lib/config";
 
 export default function SettingsPage() {
@@ -74,7 +74,11 @@ export default function SettingsPage() {
     setApiStatus("idle");
     const start = Date.now();
     try {
-      const res = await fetch(`${API_URL}/auth/me`, { credentials: "include" }).catch(() => null);
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_URL}/auth/me`, { credentials: "include", headers }).catch(() => null);
       const elapsed = Date.now() - start;
       setApiLatency(elapsed);
       setApiStatus(res && res.status < 500 ? "connected" : "error");

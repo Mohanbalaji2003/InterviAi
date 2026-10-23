@@ -137,15 +137,6 @@ export default function LiveInterviewPage() {
     );
   }
 
-  if (loadingQuestion && !questionData) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <LoaderCircle size={36} className="animate-spin text-violet-400" />
-        <p className="text-sm text-slate-300 font-medium">Generating adaptive role-specific question...</p>
-      </div>
-    );
-  }
-
   if (!interviewId) {
     return (
       <Card className="p-8 text-center space-y-4 max-w-xl mx-auto my-8">
@@ -156,6 +147,15 @@ export default function LiveInterviewPage() {
           <Button type="button" size="lg">Configure Interview</Button>
         </Link>
       </Card>
+    );
+  }
+
+  if (loadingQuestion && !questionData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <LoaderCircle size={36} className="animate-spin text-violet-400" />
+        <p className="text-sm text-slate-300 font-medium">Generating adaptive role-specific question...</p>
+      </div>
     );
   }
 

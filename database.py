@@ -113,6 +113,16 @@ class ResumeClaim(Base):
     source = Column(String(255), nullable=True)
     interview = relationship('Interview', back_populates='claims')
 
+class ChatMessage(Base):
+    __tablename__ = 'chat_messages'
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # 'user' or 'assistant'
+    message = Column(Text, nullable=False)
+    citations = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    user = relationship('User')
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     # Perform idempotent column checks for non-destructive migrations

@@ -5,14 +5,20 @@ import {
   ArrowRight,
   Award,
   BarChart2,
+  Calendar,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Copy,
   Download,
+  ExternalLink,
   FileText,
+  History,
   Layers,
+  ListTodo,
   LoaderCircle,
   Printer,
+  RotateCcw,
   Share2,
   ShieldCheck,
   Sparkles,
@@ -29,20 +35,47 @@ import { RiskSignals } from "@/components/reports/RiskSignals";
 import { Strengths } from "@/components/reports/Strengths";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { fetchLatestReport } from "@/lib/api";
+import {
+  fetchInterviewHistory,
+  fetchInterviewReport,
+  fetchLatestReport,
+  fetchPreparationPlan,
+} from "@/lib/api";
 import { loginAsDemoUser } from "@/lib/auth";
 
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<any>(null);
+  const [prepPlan, setPrepPlan] = useState<any>(null);
+  const [historyList, setHistoryList] = useState<any[]>([]);
+  const [selectedInterviewId, setSelectedInterviewId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeTab, setActiveTab] = useState<"executive" | "analytics" | "audit" | "recruiter">("executive");
+  const [activeTab, setActiveTab] = useState<"executive" | "roadmap" | "analytics" | "audit" | "recruiter">("executive");
   const [barsAnimated, setBarsAnimated] = useState(false);
+  const [completedMilestones, setCompletedMilestones] = useState<Record<string, boolean>>({});
 
-  async function load() {
+  async function loadData(interviewId?: number) {
+    setLoading(true);
     try {
-      const data = await fetchLatestReport();
-      setReportData(data);
+      // 1. Fetch history
+      const hist = await fetchInterviewHistory().catch(() => ({ interviews: [] }));
+      setHistoryList(hist.interviews || []);
+
+      // 2. Fetch specific or latest report
+      let rep;
+      if (interviewId) {
+        rep = await fetchInterviewReport(interviewId);
+      } else {
+        rep = await fetchLatestReport();
+      }
+      setReportData(rep);
+      if (rep?.interview?.id) {
+        setSelectedInterviewId(rep.interview.id);
+      }
+
+      // 3. Fetch preparation plan
+      const plan = rep?.report?.preparation_plan || (await fetchPreparationPlan().catch(() => null));
+      setPrepPlan(plan);
     } catch {
       setReportData({ has_report: false });
     } finally {
@@ -51,13 +84,12 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
-    void load();
+    void loadData();
 
-    const handleUpdate = () => void load();
+    const handleUpdate = () => void loadData();
     window.addEventListener("interviai_data_change", handleUpdate);
     window.addEventListener("interviai_auth_change", handleUpdate);
 
-    // Stagger animation for rubric bars
     const t = setTimeout(() => setBarsAnimated(true), 150);
 
     return () => {
@@ -67,8 +99,24 @@ export default function ReportsPage() {
     };
   }, []);
 
+  const handleSelectInterview = (id: number) => {
+    setSelectedInterviewId(id);
+    void loadData(id);
+  };
+
   const handleExportPDF = () => {
     window.print();
+  };
+
+  const handleDownloadJSON = () => {
+    if (!reportData) return;
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `InterviAI_Assessment_Report_${reportData.interview?.id || "Latest"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleCopyShareLink = () => {
@@ -79,17 +127,18 @@ export default function ReportsPage() {
     }
   };
 
-  const handleLoadDemoShowcase = async () => {
-    setLoading(true);
-    await loginAsDemoUser("mohanbalaji1810@gmail.com", "Mohan Balaji");
-    await load();
+  const handleToggleMilestone = (key: string) => {
+    setCompletedMilestones((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <LoaderCircle size={40} className="animate-spin text-violet-400" />
-        <p className="text-sm text-slate-300 font-medium">Compiling Candidate Intelligence Scorecard...</p>
+        <p className="text-sm text-slate-300 font-medium">Compiling Candidate Intelligence Scorecard & Roadmap...</p>
       </div>
     );
   }
@@ -109,7 +158,6 @@ export default function ReportsPage() {
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-600/10 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-emerald-600/10 blur-3xl" />
 
-          {/* Animated Graphic Badge */}
           <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-violet-500/10 border border-violet-500/20 text-violet-300 shadow-2xl">
             <BarChart2 size={36} className="animate-pulse text-violet-400" />
             <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-400 animate-ping" />
@@ -125,7 +173,7 @@ export default function ReportsPage() {
             </h2>
             <p className="text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
               Complete an adaptive technical interview to generate your AI-verified recruiter intelligence brief,
-              competency radar, and STAR evidence scorecard.
+              competency radar, and personalized preparation plan.
             </p>
           </div>
 
@@ -135,37 +183,12 @@ export default function ReportsPage() {
                 <Zap size={16} /> Take First Adaptive Assessment <ArrowRight size={16} />
               </Button>
             </Link>
-
-            <button
-              type="button"
-              onClick={handleLoadDemoShowcase}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
-            >
-              <Sparkles size={14} className="text-violet-400" />
-              Preview Demo Showcase Report
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/10 text-xs text-slate-400 text-left">
-            <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
-              <span className="font-semibold text-white block mb-0.5">1. Adaptive Assessment</span>
-              <span className="text-[11px]">Questions adjust in real-time based on conceptual depth.</span>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
-              <span className="font-semibold text-white block mb-0.5">2. Evidence Verification</span>
-              <span className="text-[11px]">Verifies answers against project defense RAG & resume claims.</span>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-slate-950/40 p-3">
-              <span className="font-semibold text-white block mb-0.5">3. Recruiter PDF Export</span>
-              <span className="text-[11px]">Generates printable FAANG STAR candidate rubrics.</span>
-            </div>
           </div>
         </Card>
       </div>
     );
   }
 
-  // Rubric data items with numeric percentages
   const rubricList = [
     {
       name: "Technical Knowledge",
@@ -201,8 +224,8 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto print:p-0 print:space-y-4">
-      {/* Header Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4 print:hidden">
+      {/* Header Actions & Version Selector */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-4 print:hidden">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             <Award size={24} className="text-amber-400" /> Candidate Intelligence Brief
@@ -213,13 +236,35 @@ export default function ReportsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* History Switcher Dropdown if multiple interviews exist */}
+          {historyList.length > 1 && (
+            <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-300">
+              <History size={14} className="text-violet-400" />
+              <select
+                value={selectedInterviewId || ""}
+                onChange={(e) => handleSelectInterview(Number(e.target.value))}
+                className="bg-transparent text-white focus:outline-none cursor-pointer"
+              >
+                {historyList.map((item) => (
+                  <option key={item.id} value={item.id} className="bg-slate-900 text-slate-200">
+                    #{item.id} - {item.job_role} ({item.readiness_score || Math.round(item.overall_score * 10)}%)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <Button type="button" variant="secondary" onClick={handleDownloadJSON} className="text-xs cursor-pointer">
+            <Download size={14} /> JSON Report
+          </Button>
+
           <Button type="button" variant="secondary" onClick={handleCopyShareLink} className="text-xs cursor-pointer">
             {copiedLink ? <CheckCircle2 size={14} className="text-emerald-300" /> : <Share2 size={14} />}
-            {copiedLink ? "Link Copied!" : "Share Recruiter Brief"}
+            {copiedLink ? "Link Copied!" : "Share Link"}
           </Button>
 
           <Button type="button" onClick={handleExportPDF} className="text-xs cursor-pointer">
-            <Printer size={14} /> Export Recruiter PDF
+            <Printer size={14} /> Export PDF
           </Button>
         </div>
       </div>
@@ -237,6 +282,20 @@ export default function ReportsPage() {
         >
           Executive Summary
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("roadmap")}
+          className={`pb-3 border-b-2 transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "roadmap"
+              ? "border-violet-400 text-white font-semibold"
+              : "border-transparent hover:text-slate-200"
+          }`}
+        >
+          <Sparkles size={14} className="text-violet-400" />
+          Preparation Plan & Sprint
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("analytics")}
@@ -248,6 +307,7 @@ export default function ReportsPage() {
         >
           Visual Analytics & Radar
         </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("audit")}
@@ -259,6 +319,7 @@ export default function ReportsPage() {
         >
           Q&A Audit Log ({qaAudit.length > 0 ? qaAudit.length : "Full"})
         </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("recruiter")}
@@ -276,14 +337,12 @@ export default function ReportsPage() {
       {activeTab === "executive" && (
         <div className="space-y-6 animate-fadeIn">
           <div className="grid gap-6 xl:grid-cols-[1.25fr,0.75fr]">
-            {/* Animated Radial Score Gauge Card */}
             <IntelligenceScore
               title={`Role Readiness Score (${interview?.job_role || "Target Role"})`}
               value={overallScore}
               subtitle={`Performance level: ${r.performance_level || "FAANG Level Candidate"}`}
             />
 
-            {/* Component Rubric Breakdown Card */}
             <Card className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-semibold">
@@ -301,7 +360,6 @@ export default function ReportsPage() {
                       <span className="text-slate-400">{item.name}</span>
                       <span className="font-semibold text-white">{item.score}%</span>
                     </div>
-                    {/* Animated Fill Bar */}
                     <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400 transition-all duration-1000 ease-out"
@@ -389,10 +447,130 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Tab 2: Visual Analytics & Radar Charts */}
+      {/* Tab 2: Actionable Preparation Plan & Sprint */}
+      {activeTab === "roadmap" && (
+        <div className="space-y-6 animate-fadeIn">
+          <Card className="p-6 space-y-4 border border-violet-500/30 bg-gradient-to-r from-violet-950/30 via-slate-900/60 to-slate-950/80">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles size={20} className="text-violet-400" />
+                  Personalized 7-Day Sprint Roadmap
+                </h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  {prepPlan?.executive_summary || `Targeted improvement plan tailored to your assessment for ${interview?.job_role || "your role"}.`}
+                </p>
+              </div>
+              <span className="rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 border border-violet-500/30">
+                {prepPlan?.readiness_tier || "Target: Tier-1 MNC Bar"}
+              </span>
+            </div>
+
+            {/* Daily Sprints */}
+            <div className="grid gap-4 md:grid-cols-2 pt-2">
+              {(prepPlan?.daily_sprint || []).map((sprint: any, idx: number) => {
+                const key = `milestone_${idx}`;
+                const isDone = completedMilestones[key];
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-2xl border p-4.5 space-y-3 transition ${
+                      isDone
+                        ? "border-emerald-500/40 bg-emerald-500/5"
+                        : "border-white/10 bg-slate-950/50 hover:border-violet-500/30"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-violet-300 uppercase tracking-wider">
+                        {sprint.day}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMilestone(key)}
+                        className={`text-xs px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold transition cursor-pointer ${
+                          isDone
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : "bg-white/10 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <CheckCircle2 size={12} /> {isDone ? "Completed" : "Mark Done"}
+                      </button>
+                    </div>
+
+                    <h4 className="text-sm font-semibold text-white">{sprint.theme}</h4>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Focus Areas:</p>
+                      <ul className="text-xs text-slate-300 space-y-1 pl-2">
+                        {(sprint.focus_areas || []).map((fa: string, faIdx: number) => (
+                          <li key={faIdx} className="flex items-start gap-1.5">
+                            <span className="text-violet-400">•</span>
+                            <span>{fa}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-2.5 text-xs text-violet-200">
+                      <strong className="block text-violet-300 font-semibold text-[11px] mb-0.5">Hands-on Drill:</strong>
+                      {sprint.action_item}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* STAR Behavioral Prompts & Architecture Must-Knows */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Target size={18} className="text-emerald-400" /> High-Yield STAR Behavioral Prompts
+              </h4>
+              <p className="text-xs text-slate-400">
+                Practice these exact scenarios using 50% Action and 20% Quantified Impact:
+              </p>
+              <div className="space-y-3">
+                {(prepPlan?.star_prompts || [
+                  "Tell me about a time you had to make a critical architectural trade-off under strict deadline pressure.",
+                  "Describe a situation where a production system or service failed. How did you diagnose and remediate it?",
+                  "Give an example of a technical disagreement with a team member and how you resolved it objectively.",
+                ]).map((p: string, pIdx: number) => (
+                  <div key={pIdx} className="rounded-xl border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-200">
+                    <span className="text-violet-400 font-bold mr-1.5">Prompt {pIdx + 1}:</span>
+                    {p}
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Layers size={18} className="text-amber-400" /> Must-Know Architecture Trade-offs
+              </h4>
+              <p className="text-xs text-slate-400">
+                Be prepared to defend these technical design choices in your upcoming onsite loops:
+              </p>
+              <div className="space-y-3">
+                {(prepPlan?.architecture_must_knows || [
+                  "Horizontal vs vertical scaling trade-offs and distributed cache coherence.",
+                  "Database isolation levels, read-replicas, and ACID vs BASE trade-offs.",
+                  "API rate limiting algorithms (Token Bucket, Leaky Bucket, Sliding Window).",
+                ]).map((arch: string, aIdx: number) => (
+                  <div key={aIdx} className="rounded-xl border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-200">
+                    <span className="text-amber-400 font-bold mr-1.5">Concept {aIdx + 1}:</span>
+                    {arch}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Visual Analytics & Radar Charts */}
       {activeTab === "analytics" && (
         <div className="space-y-6 animate-fadeIn">
-          {/* Animated Percentile Distribution Bell Curve */}
           <Card className="p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div>
@@ -408,7 +586,6 @@ export default function ReportsPage() {
               </span>
             </div>
 
-            {/* SVG Visual Bell Curve with Candidate Position Indicator */}
             <div className="relative pt-4 pb-2">
               <svg viewBox="0 0 500 160" className="w-full h-44 overflow-visible">
                 <defs>
@@ -424,19 +601,16 @@ export default function ReportsPage() {
                   </linearGradient>
                 </defs>
 
-                {/* Grid guidelines */}
                 <line x1="50" y1="130" x2="480" y2="130" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                 <line x1="120" y1="20" x2="120" y2="130" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
                 <line x1="265" y1="20" x2="265" y2="130" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
                 <line x1="420" y1="20" x2="420" y2="130" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
 
-                {/* Bell Curve Area Fill */}
                 <path
                   d="M 50 130 C 130 130, 180 120, 230 50 C 265 15, 275 15, 305 50 C 355 120, 400 130, 480 130 Z"
                   fill="url(#bellGradient)"
                 />
 
-                {/* Bell Curve Stroke */}
                 <path
                   d="M 50 130 C 130 130, 180 120, 230 50 C 265 15, 275 15, 305 50 C 355 120, 400 130, 480 130"
                   fill="none"
@@ -444,14 +618,10 @@ export default function ReportsPage() {
                   strokeWidth="3"
                 />
 
-                {/* Candidate Marker Line at 92% (X ~ 430) */}
                 <line x1="430" y1="25" x2="430" y2="130" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" />
-
-                {/* Candidate Beacon Circle */}
                 <circle cx="430" cy="100" r="7" fill="#10b981" />
                 <circle cx="430" cy="100" r="14" fill="#10b981" opacity="0.3" className="animate-ping" />
 
-                {/* Label above candidate marker */}
                 <g transform="translate(370, 8)">
                   <rect width="115" height="26" rx="8" fill="#0d121c" stroke="#10b981" strokeWidth="1" />
                   <text x="57" y="17" fill="#34d399" fontSize="10" fontWeight="bold" textAnchor="middle">
@@ -459,7 +629,6 @@ export default function ReportsPage() {
                   </text>
                 </g>
 
-                {/* X-axis labels */}
                 <text x="60" y="148" fill="#64748b" fontSize="10">20%</text>
                 <text x="160" y="148" fill="#64748b" fontSize="10">50%</text>
                 <text x="260" y="148" fill="#64748b" fontSize="10">70% (Median)</text>
@@ -469,7 +638,6 @@ export default function ReportsPage() {
             </div>
           </Card>
 
-          {/* Competency Rubric Deep-Dive Heatmap */}
           <div className="grid gap-4 md:grid-cols-2">
             {rubricList.map((item, idx) => (
               <Card key={idx} className="p-5 space-y-3 hover:border-violet-400/30 transition">
@@ -497,7 +665,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Tab 3: QA Audit View */}
+      {/* Tab 4: QA Audit View */}
       {activeTab === "audit" && (
         <Card className="p-6 space-y-6 animate-fadeIn">
           <div>
@@ -513,7 +681,7 @@ export default function ReportsPage() {
                 <div key={index} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 space-y-3">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-violet-300">
-                      Question {index + 1} ({qa.difficulty || "Medium"})
+                      Question {qa.question_number || index + 1} ({qa.difficulty || "Medium"})
                     </span>
                     <span className="text-slate-400 font-mono">{qa.topic || "Core Technical"}</span>
                   </div>
@@ -528,7 +696,7 @@ export default function ReportsPage() {
                   {qa.evaluation && (
                     <div className="text-xs text-emerald-300 flex items-center gap-2 pt-1 border-t border-white/5">
                       <CheckCircle2 size={13} />
-                      <span>{qa.evaluation}</span>
+                      <span>{typeof qa.evaluation === 'string' ? qa.evaluation : qa.evaluation.feedback || "Evaluated against FAANG rubrics."}</span>
                     </div>
                   )}
                 </div>
@@ -546,7 +714,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* Tab 4: Recruiter Matrix View */}
+      {/* Tab 5: Recruiter Matrix View */}
       {activeTab === "recruiter" && (
         <Card className="p-6 space-y-6 animate-fadeIn">
           <div>

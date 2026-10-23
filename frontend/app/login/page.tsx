@@ -33,14 +33,8 @@ export default function LoginPage() {
         await login(email, password);
       }
       router.replace("/");
-    } catch {
-      // If live backend API is unreachable or fails
-      if (mode === "register") {
-        await loginAsNewcomer(email || "newcomer@interviai.com", name || "New Candidate");
-      } else {
-        await loginAsDemoUser(email || "mohanbalaji1810@gmail.com", name || "Mohan Balaji");
-      }
-      router.replace("/");
+    } catch (err: any) {
+      setError(err?.message || "Authentication failed. Please verify your credentials and try again.");
     } finally {
       setSubmitting(false);
     }

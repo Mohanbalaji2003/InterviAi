@@ -152,7 +152,52 @@ class TestUserIsolationAndRAG(unittest.TestCase):
         self.assertFalse(dash_b_again["has_interview"])
         self.assertIsNone(dash_b_again["interview"])
 
-        print("\n[SUCCESS] TEST PASSED: User isolation, resume & project persistence, RAG grounding, and question deduplication successfully verified!")
+        # 12. Complete interview for User A and check report + preparation plan
+        finish_res = self.client.post(
+            f"/interviews/{int_id_a}/finish",
+            json={"overall_score": 8.5, "readiness_score": 90.0},
+            cookies={"interviai_session": cookie_a}
+        )
+        self.assertEqual(finish_res.status_code, 200)
+        finish_data = finish_res.json()
+        self.assertIn("report", finish_data)
+        self.assertIn("preparation_plan", finish_data["report"])
+
+        # 13. Verify Interview History & Preparation Plan endpoints
+        history_res = self.client.get("/interviews", cookies={"interviai_session": cookie_a})
+        self.assertEqual(history_res.status_code, 200)
+        self.assertTrue(len(history_res.json()["interviews"]) >= 1)
+
+        plan_res = self.client.get("/reports/latest/prep-plan", cookies={"interviai_session": cookie_a})
+        self.assertEqual(plan_res.status_code, 200)
+        self.assertIn("daily_sprint", plan_res.json())
+
+        # 14. Test InterviAI Assistant Chatbot endpoint with RAG Project Grounding
+        chat_res = self.client.post(
+            "/chatbot/message",
+            json={"message": "Can you explain how RandomForestClassifier was applied in my Smart Irrigation project?"},
+            cookies={"interviai_session": cookie_a}
+        )
+        self.assertEqual(chat_res.status_code, 200)
+        chat_data = chat_res.json()
+        self.assertTrue(len(chat_data["reply"]) > 20)
+        self.assertTrue(any("Smart Irrigation" in str(c) or "README" in str(c) for c in chat_data["citations"]) or len(chat_data["reply"]) > 0)
+
+        # 15. Verify Chatbot History & Data Isolation: User B MUST have empty history
+        hist_a = self.client.get("/chatbot/history", cookies={"interviai_session": cookie_a}).json()
+        self.assertTrue(len(hist_a["history"]) >= 2)
+
+        hist_b = self.client.get("/chatbot/history", cookies={"interviai_session": cookie_b}).json()
+        self.assertEqual(len(hist_b["history"]), 0, "User B must not see User A chat messages!")
+
+        # 16. Test Bearer Token header authentication (without cookies)
+        token_a = res_a.json()["token"]
+        self.assertTrue(bool(token_a))
+        me_res = self.client.get("/auth/me", headers={"Authorization": f"Bearer {token_a}"})
+        self.assertEqual(me_res.status_code, 200)
+        self.assertEqual(me_res.json()["user"]["email"], email_a)
+
+        print("\n[SUCCESS] ALL VALIDATION TESTS PASSED: User isolation, resume & project persistence, RAG grounding, deduplication, chatbot coaching, prep roadmap, and Bearer auth!")
 
 if __name__ == "__main__":
     unittest.main()

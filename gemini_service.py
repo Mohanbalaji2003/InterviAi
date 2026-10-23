@@ -454,5 +454,288 @@ Return ONLY valid JSON:
             f"{response_text}"
         ) from error
 
-
     return evaluation
+
+
+# ==================================================
+# CHATBOT ASSISTANT SERVICE
+# ==================================================
+
+def generate_chatbot_reply(
+    user_message: str,
+    chat_history: list = None,
+    candidate_name: str = "Candidate",
+    target_role: str = "Software Engineer / Data Scientist",
+    resume_context: str = None,
+    resume_skills: list = None,
+    resume_claims: list = None,
+    project_name: str = None,
+    project_evidence: str = None,
+    report_summary: dict = None,
+) -> dict:
+    """
+    Generate an AI coach response using Gemini, grounded in candidate resume, project evidence,
+    and interview assessment results.
+    """
+    history_lines = []
+    if chat_history:
+        for item in chat_history[-6:]:
+            role_label = "User" if item.get("role") in {"user", "User"} else "InterviAI Assistant"
+            history_lines.append(f"{role_label}: {item.get('content') or item.get('message')}")
+    history_text = "\n".join(history_lines) if history_lines else "None (New conversation)"
+
+    # Build context briefing
+    brief_parts = [
+        f"Candidate Name: {candidate_name}",
+        f"Target Role: {target_role}",
+    ]
+    if resume_skills:
+        brief_parts.append(f"Resume Detected Skills: {', '.join(resume_skills[:12])}")
+    if resume_claims:
+        brief_parts.append(f"Resume Claims Sample: {json.dumps(resume_claims[:4])}")
+    if resume_context:
+        brief_parts.append(f"Resume Text Snippet: {resume_context[:800]}")
+    if project_name:
+        brief_parts.append(f"Active Project: {project_name}")
+    if project_evidence:
+        brief_parts.append(f"Project Evidence / Code Chunks (RAG Grounding):\n{project_evidence[:1400]}")
+    if report_summary:
+        brief_parts.append(f"Latest Assessment Summary: {json.dumps(report_summary)}")
+
+    context_block = "\n".join(brief_parts)
+
+    prompt = f"""
+You are the **InterviAI Assistant & MNC Interview Intelligence Coach**.
+Your mission is to help candidates:
+1. Understand their interview scores, assessment reports, and weak areas.
+2. Prepare for FAANG/MNC technical and behavioral interviews (STAR framework, system design trade-offs, algorithms).
+3. Explain technical concepts with senior-level depth, concrete examples, and architectural trade-offs.
+4. Defend their uploaded resume and projects using specific evidence from their uploaded work.
+
+CANDIDATE CONTEXT:
+{context_block}
+
+RECENT CHAT HISTORY:
+{history_text}
+
+USER MESSAGE:
+"{user_message}"
+
+INSTRUCTIONS:
+1. Provide a direct, professional, articulate, and highly practical response.
+2. If the user asks about their resume, project, or past interview results, ground your response specifically in the provided CANDIDATE CONTEXT. Mention their specific project name, skills, or metrics if relevant.
+3. If they ask about technical concepts, explain clearly: definition, real-world application, failure modes/trade-offs, and FAANG interview expectations.
+4. If they ask about weak areas or preparation, provide concrete, actionable drills.
+5. Format your response cleanly using GitHub-flavored Markdown (bolding, bullet points, concise paragraphs, backticked code/terms).
+6. Provide 2-3 short, relevant follow-up questions the user might want to ask next.
+
+Return ONLY valid JSON:
+{{
+    "reply": "Your markdown formatted reply here",
+    "citations": ["Citation or evidence source if used, else empty array"],
+    "suggested_followups": ["Question 1", "Question 2"]
+}}
+"""
+
+    try:
+        response = _generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        data = json.loads(text.strip())
+        return {
+            "reply": data.get("reply", "").strip(),
+            "citations": data.get("citations", []),
+            "suggested_followups": data.get("suggested_followups", [
+                "How do I improve my weakest concept?",
+                "Give me a mock question on my project",
+                "How do I structure a STAR response for Amazon/Google?",
+            ]),
+        }
+    except Exception:
+        # Graceful fallback response grounded in user's profile
+        lower = user_message.lower()
+        if "project" in lower and project_name:
+            reply = (
+                f"### Project Defense Analysis for **{project_name}**\n\n"
+                f"Your uploaded project contains technical evidence indexed for adaptive defense. "
+                f"In MNC interviews (Google, Amazon, Meta), interviewers will probe:\n\n"
+                f"1. **Architectural Rationale**: Why did you choose this tech stack over standard alternatives?\n"
+                f"2. **Bottlenecks & Scale**: What happens when database throughput or QPS increases by 10x?\n"
+                f"3. **Resilience**: How are failovers, retry loops, and data consistency handled?\n\n"
+                f"Would you like to simulate a deep-dive technical question on your project architecture?"
+            )
+        elif "resume" in lower and resume_skills:
+            reply = (
+                f"### Resume Verification & Competency Review\n\n"
+                f"We analyzed your active resume. Detected core competencies include: **{', '.join(resume_skills[:6])}**.\n\n"
+                f"**Key Recruiter Insights:**\n"
+                f"- Ensure every bullet point highlights a quantified metric (e.g., latency reduction, cost savings, accuracy gain).\n"
+                f"- Be prepared to defend architectural trade-offs for tools listed on your resume.\n"
+                f"- Never state 'we designed' when discussing core modules—clearly delineate your personal contributions."
+            )
+        elif "weak" in lower or "report" in lower or "score" in lower:
+            reply = (
+                "### Interview Assessment & Weak Area Breakdown\n\n"
+                "Your Candidate Intelligence Scorecard evaluates Technical Depth, Applied Reasoning, Project Defense, and Communication.\n\n"
+                "**Actionable Next Steps:**\n"
+                "1. **Focus on Trade-offs**: When answering system design or architecture questions, state both advantages and limitations.\n"
+                "2. **Master the STAR Method**: Dedicate 50% of your response to the **Action** (the specific engineering decisions YOU made).\n"
+                "3. **Targeted Drills**: Take another adaptive assessment focusing on your lower-scoring categories."
+            )
+        else:
+            reply = (
+                f"### InterviAI Coaching Perspective\n\n"
+                f"To excel in interviews for **{target_role}**, structure your answers with systematic rigor:\n\n"
+                f"• **Clarify assumptions**: State input edge cases and operational constraints up front.\n"
+                f"• **State trade-offs**: Contrast your chosen approach with the brute-force or alternative pattern.\n"
+                f"• **Quantify outcomes**: Always articulate the business impact and runtime complexity (Time O(N), Space O(1)).\n\n"
+                f"How can I help you prepare further today?"
+            )
+
+        return {
+            "reply": reply,
+            "citations": [f"Evidence from {project_name}"] if project_name else [],
+            "suggested_followups": [
+                "What claims in my resume might an interviewer probe?",
+                "How do I prepare for FAANG system design?",
+                "Simulate a hard interview question on my project",
+            ],
+        }
+
+
+# ==================================================
+# ACTIONABLE PREPARATION PLAN GENERATOR
+# ==================================================
+
+def generate_personalized_prep_plan(
+    job_role: str,
+    overall_score: float,
+    readiness_score: float,
+    weak_concepts: list = None,
+    topic_performance: dict = None,
+    candidate_skills: list = None,
+) -> dict:
+    """
+    Generate an actionable 7-day and 30-day interview preparation roadmap.
+    """
+    prompt = f"""
+You are a Staff Technical Hiring Bar Raiser at a top technology company.
+Generate an actionable, personalized interview preparation roadmap for a candidate who just completed an adaptive technical assessment.
+
+ASSESSMENT RESULTS:
+- Target Job Role: {job_role}
+- Overall Score: {overall_score}/10
+- Role Readiness Score: {readiness_score}%
+- Weak Concepts / Priority Gaps: {json.dumps(weak_concepts or [])}
+- Topic Performance: {json.dumps(topic_performance or {})}
+- Candidate Skills: {json.dumps(candidate_skills or [])}
+
+INSTRUCTIONS:
+Create a high-impact, realistic preparation plan containing:
+1. Executive summary of what needs sharpening.
+2. 7-Day Sprint Plan (Day 1 to Day 7) with concrete daily focus, study topics, and hands-on exercises.
+3. 3 High-Yield STAR Behavioral Practice Prompts tailored to this role.
+4. Top 3 Technical Architecture Questions to master before the next interview.
+
+Return ONLY valid JSON:
+{{
+    "executive_summary": "Summary text",
+    "target_role": "{job_role}",
+    "readiness_tier": "Tier name",
+    "daily_sprint": [
+        {{
+            "day": "Day 1-2",
+            "theme": "Theme title",
+            "focus_areas": ["Item 1", "Item 2"],
+            "action_item": "Hands-on action item"
+        }},
+        {{
+            "day": "Day 3-4",
+            "theme": "Theme title",
+            "focus_areas": ["Item 1", "Item 2"],
+            "action_item": "Hands-on action item"
+        }},
+        {{
+            "day": "Day 5-6",
+            "theme": "Theme title",
+            "focus_areas": ["Item 1", "Item 2"],
+            "action_item": "Hands-on action item"
+        }},
+        {{
+            "day": "Day 7",
+            "theme": "Full Mock Simulation",
+            "focus_areas": ["Timed interview", "STAR review"],
+            "action_item": "Complete full adaptive retake on InterviAI"
+        }}
+    ],
+    "star_prompts": [
+        "Prompt 1",
+        "Prompt 2",
+        "Prompt 3"
+    ],
+    "architecture_must_knows": [
+        "Architecture concept 1",
+        "Architecture concept 2",
+        "Architecture concept 3"
+    ]
+}}
+"""
+
+    try:
+        response = _generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        return json.loads(text.strip())
+    except Exception:
+        # Fallback structured preparation plan
+        return {
+            "executive_summary": f"Targeted preparation plan for {job_role}. Focus on strengthening foundational trade-offs and project defense evidence.",
+            "target_role": job_role,
+            "readiness_tier": "Strong Candidate / Level 4 Standard" if readiness_score >= 75 else "Foundational Stage",
+            "daily_sprint": [
+                {
+                    "day": "Day 1-2",
+                    "theme": "Core Concepts & Algorithm Foundations",
+                    "focus_areas": ["Time and space complexity profiling", "Handling edge cases (empty inputs, concurrency)"],
+                    "action_item": "Implement 3 core algorithmic problems from scratch with dry-run proofs.",
+                },
+                {
+                    "day": "Day 3-4",
+                    "theme": "Applied System Architecture & Failure Modes",
+                    "focus_areas": ["Caching patterns (Redis, Memcached)", "Database indexing and connection pooling"],
+                    "action_item": "Diagram the architecture of your primary project, labeling every single-point-of-failure.",
+                },
+                {
+                    "day": "Day 5-6",
+                    "theme": "MNC STAR Behavioral & Leadership Defense",
+                    "focus_areas": ["Structuring answers into Situation, Task, Action (60%), and Result (20%)", "Quantifying business metrics"],
+                    "action_item": "Write down 3 stories using 'I decided' instead of 'we did'.",
+                },
+                {
+                    "day": "Day 7",
+                    "theme": "Full Mock Simulation & Retake",
+                    "focus_areas": ["Complete 10-question adaptive assessment", "Analyze updated readiness score"],
+                    "action_item": "Run an adaptive interview on InterviAI and verify claim grounding.",
+                },
+            ],
+            "star_prompts": [
+                "Tell me about a time you had to make a critical architectural trade-off under strict deadline pressure.",
+                "Describe a situation where a production system or service failed. How did you diagnose and remediate it?",
+                "Give an example of a technical disagreement with a team member and how you resolved it objectively.",
+            ],
+            "architecture_must_knows": [
+                "Horizontal vs vertical scaling trade-offs and distributed cache coherence.",
+                "Database isolation levels, read-replicas, and ACID vs BASE trade-offs.",
+                "API rate limiting algorithms (Token Bucket, Leaky Bucket, Sliding Window).",
+            ],
+        }

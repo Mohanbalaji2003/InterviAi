@@ -1,4 +1,5 @@
 import { API_URL } from "@/lib/config";
+import { getAuthToken } from "@/lib/auth";
 
 export type DashboardData = {
   has_interview: boolean;
@@ -38,178 +39,91 @@ export type DashboardData = {
     files: string[];
   };
 };
-export type NewcomerData = {
-  interview?: {
-    id: number;
-    job_role: string;
-    total_questions: number;
-    status: string;
-    overall_score: number;
-    readiness_score: number;
-    created_at: string;
-    project_understanding: number;
-    questions_answered: number;
-  } | null;
-  resume?: {
-    filename: string;
-    skills: string[];
-    claims: string[];
-    uploaded_at: string;
-    text_snippet: string;
-  } | null;
-  project?: {
-    name: string;
-    files: string[];
-    uploaded_at: string;
-    evidence_chunks: number;
-    text_snippet: string;
-  } | null;
-  report?: any | null;
-};
 
-export function getNewcomerData(): NewcomerData {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem("interviai_newcomer_data");
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
+function getHeaders(customHeaders?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...customHeaders };
+  const token = getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
+  return headers;
 }
 
-export function saveNewcomerData(data: Partial<NewcomerData>): void {
-  if (typeof window === "undefined") return;
-  try {
-    const current = getNewcomerData();
-    const updated = { ...current, ...data };
-    localStorage.setItem("interviai_newcomer_data", JSON.stringify(updated));
-    window.dispatchEvent(new Event("interviai_data_change"));
-  } catch {}
-}
-
-export function isNewcomerSession(): boolean {
+export function isDemoSession(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    const raw = localStorage.getItem("interviai_demo_user");
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    return Boolean(parsed.isNewcomer);
+    return Boolean(localStorage.getItem("interviai_demo_user"));
   } catch {
     return false;
   }
 }
 
-export function getSessionUser(): { id: number; name: string; email: string } {
-  if (typeof window === "undefined") {
-    return { id: 1, name: "Candidate", email: "candidate@interviai.com" };
-  }
-  try {
-    const raw = localStorage.getItem("interviai_demo_user");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        id: parsed.id || 1,
-        name: parsed.name || "Candidate",
-        email: parsed.email || "candidate@interviai.com",
-      };
-    }
-  } catch {}
-  return { id: 1, name: "Candidate", email: "candidate@interviai.com" };
-}
-
 export async function fetchDashboardData(): Promise<DashboardData> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(`${API_URL}/dashboard/latest`, {
       cache: "no-store",
       signal: controller.signal,
       credentials: "include",
+      headers: getHeaders(),
     });
 
     if (!response.ok) {
-      throw new Error(`Backend returned ${response.status}`);
+      if (response.status === 401) {
+        throw new Error("UNAUTHORIZED");
+      }
+      throw new Error(`Server returned ${response.status}`);
     }
 
     return (await response.json()) as DashboardData;
-  } catch {
-    const user = getSessionUser();
-    const isNewcomer = isNewcomerSession();
+  } catch (err: any) {
+    if (err?.message === "UNAUTHORIZED") throw err;
 
-    if (isNewcomer) {
-      const newcomerData = getNewcomerData();
-      const hasInterview = Boolean(newcomerData.interview);
-
+    // If explicit demo showcase user is chosen in localStorage
+    if (isDemoSession()) {
       return {
-        has_interview: hasInterview,
+        has_interview: true,
         candidate: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          target_role: newcomerData.interview?.job_role || "Not selected yet",
-          skills: newcomerData.resume?.skills || [],
+          id: 1,
+          name: "Mohan Balaji",
+          email: "mohanbalaji1810@gmail.com",
+          target_role: "Data Scientist",
+          skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js", "Scikit-Learn"],
         },
-        interview: newcomerData.interview || null,
-        claim_summary: newcomerData.resume ? {
-          total: newcomerData.resume.claims?.length || 0,
-          supported: newcomerData.resume.claims?.length || 0,
-          partially_supported: 0,
+        interview: {
+          id: 101,
+          job_role: "Data Scientist",
+          total_questions: 10,
+          status: "completed",
+          overall_score: 8.8,
+          readiness_score: 91,
+          created_at: new Date().toISOString(),
+          project_understanding: 94,
+          questions_answered: 10,
+        },
+        claim_summary: {
+          total: 5,
+          supported: 4,
+          partially_supported: 1,
           unverified: 0,
-          verification_confidence: 90,
-        } : null,
+          verification_confidence: 93,
+        },
         active_resume: {
-          has_resume: Boolean(newcomerData.resume),
-          filename: newcomerData.resume?.filename || "",
-          skills: newcomerData.resume?.skills || [],
+          has_resume: true,
+          filename: "Mohan_Balaji_Resume.pdf",
+          skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js"],
         },
         active_project: {
-          has_project: Boolean(newcomerData.project),
-          name: newcomerData.project?.name || "",
-          files: newcomerData.project?.files || [],
+          has_project: true,
+          name: "InterviAI Architecture RAG",
+          files: ["README.md", "app.py", "interviai_api.py"],
         },
       };
     }
 
-    // Default Demo Showcase Profile (Mohan Balaji)
-    return {
-      has_interview: true,
-      candidate: {
-        id: 1,
-        name: "Mohan Balaji",
-        email: "mohanbalaji1810@gmail.com",
-        target_role: "Data Scientist",
-        skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js", "Scikit-Learn"],
-      },
-      interview: {
-        id: 101,
-        job_role: "Data Scientist",
-        total_questions: 10,
-        status: "completed",
-        overall_score: 8.8,
-        readiness_score: 91,
-        created_at: new Date().toISOString(),
-        project_understanding: 94,
-        questions_answered: 10,
-      },
-      claim_summary: {
-        total: 5,
-        supported: 4,
-        partially_supported: 1,
-        unverified: 0,
-        verification_confidence: 93,
-      },
-      active_resume: {
-        has_resume: true,
-        filename: "Mohan_Balaji_Resume.pdf",
-        skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js"],
-      },
-      active_project: {
-        has_project: true,
-        name: "InterviAI Architecture RAG",
-        files: ["README.md", "app.py", "interviai_api.py"],
-      },
-    };
+    throw err;
   } finally {
     clearTimeout(timeout);
   }
@@ -230,78 +144,31 @@ export async function uploadFile(
   type: "resume" | "project",
 ): Promise<UploadResult> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
+  const timeout = setTimeout(() => controller.abort(), 20000);
 
   try {
     const formData = new FormData();
     formData.append("file", file);
 
+    const headers = getHeaders();
+
     const response = await fetch(`${API_URL}/uploads/${type}`, {
       method: "POST",
       body: formData,
       credentials: "include",
+      headers,
       signal: controller.signal,
     });
+
     const result = (await response.json().catch(() => ({}))) as UploadResult & {
       detail?: string;
     };
 
     if (!response.ok) {
-      throw new Error(result.detail || `${type.toUpperCase()} file upload failed.`);
+      throw new Error(result.detail || `${type.toUpperCase()} upload failed.`);
     }
 
     return result;
-  } catch {
-    const isNewcomer = isNewcomerSession();
-    if (isNewcomer) {
-      if (type === "resume") {
-        const resumeInfo = {
-          filename: file.name,
-          skills: ["Python", "FastAPI", "React", "PostgreSQL"],
-          claims: [
-            `Uploaded verified candidate resume: ${file.name}`,
-            "Extracted technical core competencies and frameworks",
-          ],
-          uploaded_at: new Date().toISOString(),
-          text_snippet: `Candidate verified resume ${file.name}. Technical domains parsed: Python, FastAPI, React, PostgreSQL.`,
-        };
-        saveNewcomerData({ resume: resumeInfo });
-        return {
-          status: "success",
-          filename: file.name,
-          skills: resumeInfo.skills,
-          claims: resumeInfo.claims,
-          uploaded_at: resumeInfo.uploaded_at,
-        };
-      } else {
-        const projectInfo = {
-          name: file.name.replace(/\.[^/.]+$/, ""),
-          files: [file.name],
-          uploaded_at: new Date().toISOString(),
-          evidence_chunks: 12,
-          text_snippet: `Indexed candidate project repository: ${file.name} for technical defense RAG questions.`,
-        };
-        saveNewcomerData({ project: projectInfo });
-        return {
-          status: "success",
-          filename: file.name,
-          active_project_name: projectInfo.name,
-          files_count: 1,
-          uploaded_at: projectInfo.uploaded_at,
-        };
-      }
-    }
-
-    // Demo Fallback
-    return {
-      status: "success",
-      filename: file.name,
-      skills: ["Python", "Machine Learning", "System Design", "PostgreSQL"],
-      claims: ["Built multi-agent rag evaluation pipeline", "Engineered real-time API backend"],
-      active_project_name: file.name,
-      files_count: 1,
-      uploaded_at: new Date().toISOString(),
-    };
   } finally {
     clearTimeout(timeout);
   }
@@ -319,53 +186,40 @@ export type ActiveResumeData = {
 };
 
 export async function fetchActiveResume(): Promise<ActiveResumeData> {
-  try {
-    const response = await fetch(`${API_URL}/resume/active`, {
-      cache: "no-store",
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return (await response.json()) as ActiveResumeData;
-  } catch {
-    const isNewcomer = isNewcomerSession();
-    if (isNewcomer) {
-      const data = getNewcomerData();
+  const response = await fetch(`${API_URL}/resume/active`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    if (isDemoSession()) {
       return {
-        active: Boolean(data.resume),
-        resume: data.resume || null,
+        active: true,
+        resume: {
+          filename: "Mohan_Balaji_Resume.pdf",
+          skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js", "Scikit-Learn"],
+          claims: [
+            "Engineered high-throughput adaptive assessment pipeline using Python & FastAPI",
+            "Optimized RAG embedding retrieval latency down to under 120ms",
+            "Built data-isolated candidate evaluation architecture backed by PostgreSQL",
+          ],
+          uploaded_at: new Date().toISOString(),
+          text_snippet: "Mohan Balaji - Data Scientist & AI Product Engineer with expertise in FastAPI, PostgreSQL, RAG systems...",
+        },
       };
     }
-
-    return {
-      active: true,
-      resume: {
-        filename: "Mohan_Balaji_Resume.pdf",
-        skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js", "Scikit-Learn"],
-        claims: [
-          "Engineered high-throughput adaptive assessment pipeline using Python & FastAPI",
-          "Optimized RAG embedding retrieval latency down to under 120ms",
-          "Built data-isolated candidate evaluation architecture backed by PostgreSQL",
-        ],
-        uploaded_at: new Date().toISOString(),
-        text_snippet: "Mohan Balaji - Data Scientist & AI Product Engineer with expertise in FastAPI, PostgreSQL, RAG systems...",
-      },
-    };
+    throw new Error("Failed to fetch active resume.");
   }
+  return (await response.json()) as ActiveResumeData;
 }
 
 export async function deleteActiveResume(): Promise<void> {
-  const isNewcomer = isNewcomerSession();
-  if (isNewcomer) {
-    saveNewcomerData({ resume: null });
-  }
-  try {
-    await fetch(`${API_URL}/resume/active`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-  } catch {
-    // Demo silence
-  }
+  const response = await fetch(`${API_URL}/resume/active`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to delete resume.");
 }
 
 export type ActiveProjectData = {
@@ -380,49 +234,36 @@ export type ActiveProjectData = {
 };
 
 export async function fetchActiveProject(): Promise<ActiveProjectData> {
-  try {
-    const response = await fetch(`${API_URL}/projects/active`, {
-      cache: "no-store",
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return (await response.json()) as ActiveProjectData;
-  } catch {
-    const isNewcomer = isNewcomerSession();
-    if (isNewcomer) {
-      const data = getNewcomerData();
+  const response = await fetch(`${API_URL}/projects/active`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    if (isDemoSession()) {
       return {
-        active: Boolean(data.project),
-        project: data.project || null,
+        active: true,
+        project: {
+          name: "InterviAI Candidate Intelligence System",
+          files: ["README.md", "interviai_api.py", "database.py", "adaptive_engine.py"],
+          uploaded_at: new Date().toISOString(),
+          evidence_chunks: 18,
+          text_snippet: "InterviAI is an AI-powered candidate intelligence platform with adaptive questioning and project defense RAG...",
+        },
       };
     }
-
-    return {
-      active: true,
-      project: {
-        name: "InterviAI Candidate Intelligence System",
-        files: ["README.md", "interviai_api.py", "database.py", "adaptive_engine.py"],
-        uploaded_at: new Date().toISOString(),
-        evidence_chunks: 18,
-        text_snippet: "InterviAI is an AI-powered candidate intelligence platform with adaptive questioning and project defense RAG...",
-      },
-    };
+    throw new Error("Failed to fetch active project.");
   }
+  return (await response.json()) as ActiveProjectData;
 }
 
 export async function deleteActiveProject(): Promise<void> {
-  const isNewcomer = isNewcomerSession();
-  if (isNewcomer) {
-    saveNewcomerData({ project: null });
-  }
-  try {
-    await fetch(`${API_URL}/projects/active`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-  } catch {
-    // Demo silence
-  }
+  const response = await fetch(`${API_URL}/projects/active`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to delete project.");
 }
 
 export type CreateInterviewPayload = {
@@ -435,18 +276,17 @@ export type CreateInterviewPayload = {
 };
 
 export async function createInterview(payload: CreateInterviewPayload) {
-  try {
-    const response = await fetch(`${API_URL}/interviews`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return (await response.json()) as { id: number; job_role: string; total_questions: number };
-  } catch {
-    return { id: 101, job_role: payload.job_role, total_questions: payload.total_questions };
+  const response = await fetch(`${API_URL}/interviews`, {
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create assessment.");
   }
+  return (await response.json()) as { id: number; job_role: string; total_questions: number };
 }
 
 export type NextQuestionResponse = {
@@ -466,223 +306,185 @@ export type NextQuestionResponse = {
 };
 
 export async function fetchNextQuestion(interviewId: number): Promise<NextQuestionResponse> {
-  try {
-    const response = await fetch(`${API_URL}/interviews/${interviewId}/questions/next`, {
-      cache: "no-store",
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return (await response.json()) as NextQuestionResponse;
-  } catch {
-    // Demo questions sequence
-    const demoQuestions = [
-      {
-        type: "MCQ" as const,
-        topic: "Machine Learning & System Architecture",
-        concept: "Model Latency Trade-offs",
-        difficulty: "Medium",
-        question: "When deploying a LLM embedding pipeline for real-time RAG, which optimization strategy provides the best balance between retrieval accuracy and latency under high QPS?",
-        options: [
-          "HNSW vector index with product quantization (PQ)",
-          "Brute-force exact cosine similarity search",
-          "Re-ranking 10,000 raw documents on every query",
-          "Disabling vector indexing and relying on SQL full-text search",
-        ],
-        correct_answer: "HNSW vector index with product quantization (PQ)",
-        explanation: "HNSW with PQ reduces vector memory footprints while keeping query latency under 10ms with >95% recall.",
-      },
-      {
-        type: "Descriptive" as const,
-        topic: "System Design & Data Isolation",
-        concept: "Multi-tenant Database Security",
-        difficulty: "Hard",
-        question: "How would you design data isolation for candidate assessments in a multi-tenant PostgreSQL environment to prevent cross-account data leaks?",
-        explanation: "Key considerations include Row Level Security (RLS), foreign key tenant scoping, and isolated JWT session scopes.",
-      },
-      {
-        type: "Descriptive" as const,
-        topic: "Project Defense Architecture",
-        concept: "RAG Evidence Grounding",
-        difficulty: "Hard",
-        question: "In your project defense, walk us through how you handled chunking strategy, embedding storage, and hallucination reduction when parsing technical resumes.",
-        explanation: "Discuss semantic chunk boundaries, metadata tagging, and confidence thresholding.",
-      },
-    ];
-
-    const currentNum = Number(sessionStorage.getItem("demo_q_num") || 1);
-    if (currentNum > demoQuestions.length) {
-      sessionStorage.removeItem("demo_q_num");
-      return { finished: true };
-    }
-
-    const q = demoQuestions[currentNum - 1];
-    return {
-      finished: false,
-      question_number: currentNum,
-      total_questions: demoQuestions.length,
-      question: q,
-    };
+  const response = await fetch(`${API_URL}/interviews/${interviewId}/questions/next`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to load question.");
   }
+  return (await response.json()) as NextQuestionResponse;
 }
 
 export async function submitAnswer(interviewId: number, payload: Record<string, any>) {
-  try {
-    const response = await fetch(`${API_URL}/interviews/${interviewId}/answers`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return await response.json();
-  } catch {
-    const currentNum = Number(sessionStorage.getItem("demo_q_num") || 1);
-    sessionStorage.setItem("demo_q_num", String(currentNum + 1));
-    return { status: "success", evaluation: "Answer evaluated against FAANG STAR rubric." };
+  const response = await fetch(`${API_URL}/interviews/${interviewId}/answers`, {
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to submit answer.");
   }
+  return await response.json();
 }
 
 export async function finishInterview(interviewId: number, readinessScore?: number) {
-  try {
-    const response = await fetch(`${API_URL}/interviews/${interviewId}/finish`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ overall_score: 8.8, readiness_score: readinessScore || 92 }),
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return await response.json();
-  } catch {
-    const isNewcomer = isNewcomerSession();
-    const score = readinessScore || 88;
-    const completedInterview = {
-      id: interviewId || Date.now(),
-      job_role: "Data Scientist",
-      total_questions: 10,
-      status: "completed",
-      overall_score: 8.8,
-      readiness_score: score,
-      created_at: new Date().toISOString(),
-      project_understanding: 92,
-      questions_answered: 10,
-    };
-
-    const generatedReport = {
-      has_report: true,
-      interview: completedInterview,
-      report: {
-        overall_readiness: score,
-        performance_level: score >= 90 ? "FAANG / MNC Tier-1 Benchmark Level" : "Strong Candidate / Level 4 Standard",
-        components: {
-          "Technical Knowledge": `${score}%`,
-          "Applied Reasoning": `${Math.round(score * 0.95)}%`,
-          "Project Understanding": `${Math.round(score * 0.98)}%`,
-          "Technical Communication": `${Math.round(score * 0.94)}%`,
-          "Resume Evidence Confidence": "92%",
-        },
-        strengths: [
-          "Demonstrates strong domain architectural principles in Python & RAG pipelines.",
-          "Clear trade-off analysis during adaptive questioning.",
-          "Grounded technical project defense with original reasoning.",
-        ],
-        risk_signals: ["None detected. High consistency across answers."],
-        recommended_focus: [
-          "Deep dive into multi-region database scaling trade-offs.",
-          "Conduct live pair-programming microservice optimization screen.",
-        ],
-      },
-      qa_audit: [
-        {
-          question_text: "When deploying a LLM embedding pipeline for real-time RAG, which optimization strategy provides the best balance between retrieval accuracy and latency under high QPS?",
-          answer_text: "HNSW vector index with product quantization (PQ)",
-          difficulty: "Medium",
-          topic: "Machine Learning & System Architecture",
-          evaluation: "Correct. Selected optimal vector index algorithm.",
-        },
-        {
-          question_text: "How would you design data isolation for candidate assessments in a multi-tenant PostgreSQL environment?",
-          answer_text: "Implemented Row Level Security (RLS) policies along with tenant-scoped JWT session tokens.",
-          difficulty: "Hard",
-          topic: "System Design & Data Isolation",
-          evaluation: "Strong architectural trade-off reasoning.",
-        },
-      ],
-    };
-
-    if (isNewcomer) {
-      saveNewcomerData({
-        interview: completedInterview,
-        report: generatedReport,
-      });
-    }
-
-    return { status: "completed", overall_score: 8.8, readiness_score: score };
+  const response = await fetch(`${API_URL}/interviews/${interviewId}/finish`, {
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ overall_score: 8.8, readiness_score: readinessScore || 90 }),
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to finalize interview report.");
   }
+  return await response.json();
 }
 
 export async function fetchLatestReport() {
-  try {
-    const response = await fetch(`${API_URL}/reports/latest`, {
-      cache: "no-store",
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error();
-    return await response.json();
-  } catch {
-    const isNewcomer = isNewcomerSession();
-    if (isNewcomer) {
-      const data = getNewcomerData();
-      if (data.report) {
-        return data.report;
-      }
-      return { has_report: false };
+  const response = await fetch(`${API_URL}/reports/latest`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    if (isDemoSession()) {
+      return {
+        has_report: true,
+        interview: {
+          id: 101,
+          job_role: "Data Scientist",
+          status: "completed",
+          overall_score: 8.8,
+          readiness_score: 92,
+        },
+        report: {
+          overall_readiness: 92,
+          performance_level: "FAANG / MNC Tier-1 Benchmark Level",
+          components: {
+            "Technical Knowledge": 92,
+            "Applied Reasoning": 89,
+            "Project Understanding": 95,
+            "Technical Communication": 94,
+            "Resume Evidence Confidence": 93,
+          },
+          strengths: [
+            "Demonstrates strong domain architectural principles in Python & RAG pipelines.",
+            "Clear trade-off analysis during adaptive questioning.",
+            "Grounded technical project defense with zero hallucination flag.",
+          ],
+          risk_signals: ["None detected. High consistency across resume claims."],
+          recommended_focus: [
+            "Deep dive into multi-region database scaling trade-offs.",
+            "Conduct live pair-programming microservice optimization screen.",
+          ],
+        },
+        qa_audit: [
+          {
+            question_text: "When deploying a LLM embedding pipeline for real-time RAG, which optimization strategy provides the best balance between retrieval accuracy and latency under high QPS?",
+            answer_text: "HNSW vector index with product quantization (PQ)",
+            difficulty: "Medium",
+            topic: "Machine Learning & System Architecture",
+            evaluation: "Correct. Selected optimal vector index algorithm.",
+          },
+        ],
+      };
     }
-
-    return {
-      has_report: true,
-      interview: {
-        job_role: "Data Scientist",
-        status: "completed",
-        overall_score: 8.8,
-        readiness_score: 92,
-      },
-      report: {
-        overall_readiness: 92,
-        performance_level: "FAANG / MNC Tier-1 Benchmark Level",
-        components: {
-          "Technical Knowledge": "92%",
-          "Applied Reasoning": "89%",
-          "Project Understanding": "95%",
-          "Technical Communication": "94%",
-          "Resume Evidence Confidence": "93%",
-        },
-        strengths: [
-          "Demonstrates strong domain architectural principles in Python & RAG pipelines.",
-          "Clear trade-off analysis during adaptive questioning.",
-          "Grounded technical project defense with zero hallucination flag.",
-        ],
-        risk_signals: ["None detected. High consistency across resume claims."],
-        recommended_focus: [
-          "Deep dive into multi-region database scaling trade-offs.",
-          "Conduct live pair-programming microservice optimization screen.",
-        ],
-      },
-      qa_audit: [
-        {
-          question_text: "When deploying a LLM embedding pipeline for real-time RAG, which optimization strategy provides the best balance between retrieval accuracy and latency under high QPS?",
-          answer_text: "HNSW vector index with product quantization (PQ)",
-          difficulty: "Medium",
-          topic: "Machine Learning & System Architecture",
-          evaluation: "Correct. Selected optimal vector index algorithm.",
-        },
-        {
-          question_text: "How would you design data isolation for candidate assessments in a multi-tenant PostgreSQL environment?",
-          answer_text: "Implemented Row Level Security (RLS) policies along with tenant-scoped JWT session tokens.",
-          difficulty: "Hard",
-          topic: "System Design & Data Isolation",
-          evaluation: "Strong architectural trade-off reasoning.",
-        },
-      ],
-    };
+    throw new Error("Failed to fetch report.");
   }
+  return await response.json();
+}
+
+export async function fetchInterviewReport(interviewId: number) {
+  const response = await fetch(`${API_URL}/reports/${interviewId}`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to load interview report.");
+  return await response.json();
+}
+
+export async function fetchInterviewHistory() {
+  const response = await fetch(`${API_URL}/interviews`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch interview history.");
+  return (await response.json()) as {
+    interviews: Array<{
+      id: number;
+      job_role: string;
+      total_questions: number;
+      status: string;
+      overall_score: number | null;
+      readiness_score: number | null;
+      created_at: string | null;
+      questions_answered: number;
+    }>;
+  };
+}
+
+export async function fetchPreparationPlan() {
+  const response = await fetch(`${API_URL}/reports/latest/prep-plan`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch preparation plan.");
+  return await response.json();
+}
+
+// ==========================================
+// CHATBOT CLIENT APIS
+// ==========================================
+
+export async function fetchChatHistory() {
+  const response = await fetch(`${API_URL}/chatbot/history`, {
+    cache: "no-store",
+    credentials: "include",
+    headers: getHeaders(),
+  });
+  if (!response.ok) return { history: [] };
+  return (await response.json()) as {
+    history: Array<{
+      id: string;
+      role: "user" | "assistant";
+      message: string;
+      citations: string[];
+      created_at: string | null;
+    }>;
+  };
+}
+
+export async function sendChatMessage(message: string) {
+  const response = await fetch(`${API_URL}/chatbot/message`, {
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ message }),
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Chat assistant is unavailable right now.");
+  }
+  return (await response.json()) as {
+    reply: string;
+    citations: string[];
+    suggested_followups: string[];
+  };
+}
+
+export async function clearChatHistory() {
+  await fetch(`${API_URL}/chatbot/history`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: getHeaders(),
+  });
 }
