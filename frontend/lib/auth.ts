@@ -69,7 +69,8 @@ async function authRequest(path: string, payload?: Record<string, string>) {
 }
 
 export async function login(email: string, password: string) {
-  const res = await authRequest("/auth/login", { email, password });
+  const normalizedEmail = email.trim().toLowerCase();
+  const res = await authRequest("/auth/login", { email: normalizedEmail, password });
   if (typeof window !== "undefined") {
     localStorage.removeItem(DEMO_USER_KEY);
     window.dispatchEvent(new Event("interviai_auth_change"));
@@ -78,7 +79,8 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(name: string, email: string, password: string) {
-  const res = await authRequest("/auth/register", { name, email, password });
+  const normalizedEmail = email.trim().toLowerCase();
+  const res = await authRequest("/auth/register", { name: name.trim(), email: normalizedEmail, password });
   if (typeof window !== "undefined") {
     localStorage.removeItem(DEMO_USER_KEY);
     window.dispatchEvent(new Event("interviai_auth_change"));
@@ -124,6 +126,13 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
       } catch {
         localStorage.removeItem(DEMO_USER_KEY);
       }
+    }
+
+    // Fast synchronous check: If there is no token, user is unauthenticated.
+    // Avoid making an unnecessary 12-second network request to /auth/me that causes cold-start lag.
+    const token = getAuthToken();
+    if (!token) {
+      return null;
     }
   }
 

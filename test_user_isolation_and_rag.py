@@ -197,7 +197,38 @@ class TestUserIsolationAndRAG(unittest.TestCase):
         self.assertEqual(me_res.status_code, 200)
         self.assertEqual(me_res.json()["user"]["email"], email_a)
 
-        print("\n[SUCCESS] ALL VALIDATION TESTS PASSED: User isolation, resume & project persistence, RAG grounding, deduplication, chatbot coaching, prep roadmap, and Bearer auth!")
+        # 17. Test Email & Password Sign In Flow
+        # Case A: Correct credentials (case-insensitive email)
+        login_res = self.client.post("/auth/login", json={
+            "email": f"  {email_a.upper()}  ",
+            "password": "Password123!"
+        })
+        self.assertEqual(login_res.status_code, 200)
+        new_token = login_res.json().get("token")
+        self.assertTrue(bool(new_token))
+        self.assertEqual(login_res.json()["user"]["email"], email_a)
+
+        # Verify new token works for /auth/me
+        me_check = self.client.get("/auth/me", headers={"Authorization": f"Bearer {new_token}"})
+        self.assertEqual(me_check.status_code, 200)
+        self.assertEqual(me_check.json()["user"]["id"], res_a.json()["user"]["id"])
+
+        # Case B: Incorrect password
+        wrong_pass_res = self.client.post("/auth/login", json={
+            "email": email_a,
+            "password": "WrongPassword999!"
+        })
+        self.assertEqual(wrong_pass_res.status_code, 401)
+        self.assertIn("Incorrect email or password", wrong_pass_res.json().get("detail", ""))
+
+        # Case C: Nonexistent user
+        nonexistent_res = self.client.post("/auth/login", json={
+            "email": "nobody_exists_12345@example.com",
+            "password": "Password123!"
+        })
+        self.assertEqual(nonexistent_res.status_code, 401)
+
+        print("\n[SUCCESS] ALL VALIDATION TESTS PASSED: User isolation, resume & project persistence, RAG grounding, deduplication, chatbot coaching, prep roadmap, Bearer auth, and email/password sign-in flow!")
 
 if __name__ == "__main__":
     unittest.main()
