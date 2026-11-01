@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CheckCircle2, FileText, FolderPlus, Sparkles, UserCheck, Video } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileText, FolderPlus, Sparkles, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -134,21 +134,14 @@ export default function DashboardPage() {
                 Upload your resume and project report, then run your first adaptive interview to generate isolated candidate intelligence.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/interview">
-                <Button type="button" variant="secondary" size="lg" className="whitespace-nowrap">
-                  Adaptive Screen
-                </Button>
-              </Link>
-              <Link href="/video-interview">
-                <Button type="button" size="lg" className="whitespace-nowrap bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30">
-                  <Video size={16} /> AI Video Interview <ArrowRight size={16} />
-                </Button>
-              </Link>
-            </div>
+            <Link href="/interview">
+              <Button type="button" size="lg" className="whitespace-nowrap">
+                Start New Assessment <ArrowRight size={16} />
+              </Button>
+            </Link>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div className={`rounded-2xl border p-4 ${data?.active_resume?.has_resume ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-dashed border-white/15 bg-slate-950/40'}`}>
               <div className="flex items-center gap-3 text-slate-200">
                 <FileText size={18} className={data?.active_resume?.has_resume ? 'text-emerald-300' : 'text-violet-300'} />
@@ -185,23 +178,10 @@ export default function DashboardPage() {
                 <span className="font-semibold text-white">3. Adaptive Assessment</span>
               </div>
               <p className="mt-2 text-xs text-slate-400">
-                Configure roles and start adaptive technical questioning.
+                Choose your job role and start live adaptive questioning grounded in your work.
               </p>
               <Link href="/interview" className="mt-3 inline-block text-xs font-medium text-violet-400 hover:underline">
                 Configure Interview →
-              </Link>
-            </div>
-
-            <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
-              <div className="flex items-center gap-3 text-slate-200">
-                <Video size={18} className="text-violet-400" />
-                <span className="font-semibold text-white">4. AI Video Interview</span>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">
-                Record your video answers with real-time AI delivery & technical analysis.
-              </p>
-              <Link href="/video-interview" className="mt-3 inline-block text-xs font-medium text-violet-400 hover:underline">
-                Start Video Defense →
               </Link>
             </div>
           </div>

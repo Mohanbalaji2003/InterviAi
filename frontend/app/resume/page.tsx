@@ -12,7 +12,6 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  Video,
   Wand2,
   Zap,
 } from "lucide-react";
@@ -116,9 +115,9 @@ export default function ResumePage() {
           </div>
           <div className="flex items-center gap-2">
             {isResumeActive && (
-              <Link href="/video-interview">
+              <Link href="/interview">
                 <Button type="button" size="sm" className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-xs">
-                  <Video size={14} /> AI Video Interview
+                  Start Adaptive Assessment <ArrowRight size={13} />
                 </Button>
               </Link>
             )}
@@ -229,11 +228,11 @@ export default function ResumePage() {
             </div>
 
             {isResumeActive && (
-              <Link href="/video-interview" className="block pt-2">
+              <Link href="/interview" className="block pt-2">
                 <div className="flex items-center justify-between p-2.5 rounded-xl border border-violet-500/20 bg-violet-500/10 text-xs text-violet-200 hover:bg-violet-500/20 transition">
                   <span className="flex items-center gap-2 font-medium">
-                    <Video size={14} className="text-violet-300" />
-                    AI Video Interview Ready
+                    <Sparkles size={14} className="text-violet-300" />
+                    Adaptive Assessment Ready
                   </span>
                   <ArrowRight size={13} className="text-violet-400" />
                 </div>

@@ -108,6 +108,33 @@ export default function InterviewSetupPage() {
           <h3 className="mt-2 text-xl font-semibold text-white">Interview setup</h3>
 
           <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div className="space-y-2 text-sm text-slate-300 md:col-span-2">
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Popular Job Roles (Quick Select)</span>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "Data Scientist",
+                  "Machine Learning Engineer",
+                  "AI Engineer",
+                  "Software Engineer",
+                  "Full Stack Developer",
+                  "Data Analyst",
+                ].map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setForm((c) => ({ ...c, role }))}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
+                      form.role === role
+                        ? "bg-violet-600 text-white shadow-sm shadow-violet-500/25 border border-violet-400/30"
+                        : "bg-white/5 text-slate-400 hover:text-white border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <label className="space-y-2 text-sm text-slate-300">
               <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Target job role ({roleOptions.length} available)</span>
               <select

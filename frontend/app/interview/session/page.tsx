@@ -10,7 +10,7 @@ import { InterviewProgress } from "@/components/interview/InterviewProgress";
 import { QuestionCard } from "@/components/interview/QuestionCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { fetchNextQuestion, finishInterview, submitAnswer, type NextQuestionResponse } from "@/lib/api";
+import { createInterview, fetchNextQuestion, finishInterview, submitAnswer, type NextQuestionResponse } from "@/lib/api";
 
 export default function LiveInterviewPage() {
   const searchParams = useSearchParams();
@@ -20,6 +20,7 @@ export default function LiveInterviewPage() {
   const [loadingQuestion, setLoadingQuestion] = useState(true);
   const [answer, setAnswer] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quickstarting, setQuickstarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
 
@@ -77,7 +78,7 @@ export default function LiveInterviewPage() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!interviewId || !currentQ || !canSubmit) return;
 
     setIsSubmitting(true);
@@ -107,6 +108,47 @@ export default function LiveInterviewPage() {
       setError(err instanceof Error ? err.message : "Failed to submit answer.");
     } finally {
       setIsSubmitting(false);
+    }
+  }, [interviewId, currentQ, canSubmit, currentNum, answer, totalNum, loadQuestion]);
+
+  // Keyboard shortcut Ctrl+Enter or Cmd+Enter to submit answer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (canSubmit && !isSubmitting) {
+          e.preventDefault();
+          void handleSubmit();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canSubmit, isSubmitting, handleSubmit]);
+
+  const handleQuickstart = async () => {
+    setQuickstarting(true);
+    setError(null);
+    try {
+      const preferredRole =
+        typeof window !== "undefined"
+          ? localStorage.getItem("setting_targetRole") || "Data Scientist"
+          : "Data Scientist";
+
+      const result = await createInterview({
+        job_role: preferredRole,
+        total_questions: 5,
+        candidate_type: "Experienced",
+        experience_years: "3-5 years",
+        starting_difficulty: "Medium",
+        use_project_defense: true,
+      });
+
+      setInterviewId(result.id);
+      sessionStorage.setItem("current_interview_id", String(result.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to launch quickstart assessment.");
+    } finally {
+      setQuickstarting(false);
     }
   };
 
@@ -139,13 +181,37 @@ export default function LiveInterviewPage() {
 
   if (!interviewId) {
     return (
-      <Card className="p-8 text-center space-y-4 max-w-xl mx-auto my-8">
-        <AlertTriangle size={36} className="mx-auto text-amber-400" />
-        <h3 className="text-xl font-semibold text-white">No Active Session Found</h3>
-        <p className="text-sm text-slate-400">Please launch a new technical assessment session from the setup workspace.</p>
-        <Link href="/interview">
-          <Button type="button" size="lg">Configure Interview</Button>
-        </Link>
+      <Card className="p-8 sm:p-10 text-center space-y-5 max-w-xl mx-auto my-8 border border-white/10">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
+          <Wand2 size={32} />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-xl font-bold text-white">Ready for Technical Assessment</h3>
+          <p className="text-sm text-slate-400">
+            Launch an instant 5-question adaptive assessment or configure custom parameters.
+          </p>
+        </div>
+
+        {error && <p className="text-xs text-rose-300">{error}</p>}
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <Button
+            type="button"
+            size="lg"
+            onClick={handleQuickstart}
+            disabled={quickstarting}
+            className="cursor-pointer gap-2"
+          >
+            {quickstarting ? <LoaderCircle size={16} className="animate-spin" /> : <Wand2 size={16} />}
+            {quickstarting ? "Launching Session..." : "Instant Quickstart (5 Qs)"}
+          </Button>
+
+          <Link href="/interview">
+            <Button type="button" variant="secondary" size="lg" className="w-full sm:w-auto cursor-pointer">
+              Configure Custom Role
+            </Button>
+          </Link>
+        </div>
       </Card>
     );
   }

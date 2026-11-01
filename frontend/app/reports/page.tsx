@@ -134,6 +134,13 @@ export default function ReportsPage() {
     }));
   };
 
+  const handleActivateSampleReport = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("interviai_sample_report_active", "true");
+      void loadData();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
@@ -179,10 +186,19 @@ export default function ReportsPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link href="/interview">
-              <Button type="button" size="lg" className="gap-2 cursor-pointer">
+              <Button type="button" size="lg" className="gap-2 cursor-pointer w-full sm:w-auto">
                 <Zap size={16} /> Take First Adaptive Assessment <ArrowRight size={16} />
               </Button>
             </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              onClick={handleActivateSampleReport}
+              className="gap-2 cursor-pointer w-full sm:w-auto"
+            >
+              <Sparkles size={16} className="text-amber-400" /> Preview Benchmark Scorecard
+            </Button>
           </div>
         </Card>
       </div>

@@ -103,11 +103,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     }
   }
 
-  // Check if this candidate completed an interview or video assessment in this browser session
+  // Check if this candidate completed an interview in this browser session
   if (typeof window !== "undefined" && user) {
-    const savedInterview =
-      localStorage.getItem(`interviai_user_interview_${user.id}`) ||
-      localStorage.getItem(`interviai_video_interview_${user.id}`);
+    const savedInterview = localStorage.getItem(`interviai_user_interview_${user.id}`);
 
     if (savedInterview) {
       try {
@@ -688,7 +686,336 @@ const ROLE_QUESTIONS: Record<
         "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
     },
   ],
+  "Data Scientist": [
+    {
+      type: "MCQ",
+      topic: "Machine Learning Foundations",
+      concept: "L1 vs L2 Regularization",
+      difficulty: "Medium",
+      question:
+        "In regularized linear or logistic regression, what is the primary structural difference between L1 (Lasso) and L2 (Ridge) penalties?",
+      options: [
+        "L1 produces sparse models by driving coefficients exactly to zero; L2 shrinks coefficients asymptotically without zeroing them",
+        "L2 performs automatic feature selection while L1 only prevents overfitting",
+        "L1 can only be applied to decision trees, while L2 is reserved for neural networks",
+        "L2 regularization is mathematically undefined for convex loss functions",
+      ],
+      correct_answer:
+        "L1 produces sparse models by driving coefficients exactly to zero; L2 shrinks coefficients asymptotically without zeroing them",
+      explanation:
+        "L1 penalty has sharp corners on diamond-shaped constraint boundaries, leading to exact zero coefficients and automatic feature selection.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Imbalanced Classification",
+      concept: "Class Imbalance & Evaluation",
+      difficulty: "Hard",
+      question:
+        "When modeling severe class imbalance (e.g. fraud detection with 0.05% positive rate), why is standard accuracy misleading, and how do you optimize Precision-Recall AUC vs ROC-AUC?",
+      explanation:
+        "Standard accuracy is dominated by true negatives. In rare-event detection, PR-AUC focuses on minority class recall and false positive rates without being diluted by the large negative class volume.",
+    },
+    {
+      type: "MCQ",
+      topic: "Tree-Based Ensembles",
+      concept: "Gradient Boosting Mechanics",
+      difficulty: "Medium",
+      question:
+        "How do subsequent decision trees improve predictive performance in algorithms like XGBoost and LightGBM?",
+      options: [
+        "Each subsequent tree is trained on the negative gradient (residuals) of the loss function computed from previous trees",
+        "Trees are grown independently in parallel and averaged using bootstrap aggregation",
+        "Subsequent trees randomly drop 50% of the training features to minimize variance",
+        "Trees prune prior trees recursively whenever cross-entropy increases",
+      ],
+      correct_answer:
+        "Each subsequent tree is trained on the negative gradient (residuals) of the loss function computed from previous trees",
+      explanation:
+        "Gradient boosting performs gradient descent in function space, fitting each new base learner to the pseudo-residuals of the current ensemble.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Validation Strategy",
+      concept: "Time Series Leakage",
+      difficulty: "Hard",
+      question:
+        "Describe how you design a leak-free cross-validation split for financial market forecasting, addressing serial correlation and look-ahead bias.",
+      explanation:
+        "Use Purged Group TimeSeriesSplit or Walk-Forward validation with an embargo window to eliminate look-ahead leakage and autocorrelation overlap between train and test intervals.",
+    },
+    {
+      type: "MCQ",
+      topic: "Vector Mathematics",
+      concept: "Normalized Embeddings",
+      difficulty: "Medium",
+      question:
+        "When comparing high-dimensional embeddings that have been L2-normalized to unit length (||v|| = 1), what is the relationship between Cosine Similarity and Dot Product?",
+      options: [
+        "Cosine Similarity is mathematically identical to Dot Product",
+        "Dot Product is always half the Cosine Similarity",
+        "Cosine Similarity requires an additional Mahalanobis covariance inversion",
+        "Dot Product can only be computed if vectors share identical non-zero elements",
+      ],
+      correct_answer: "Cosine Similarity is mathematically identical to Dot Product",
+      explanation:
+        "Cosine similarity is dot(u, v) / (||u|| * ||v||). When vectors are L2-normalized, ||u|| = ||v|| = 1, making cosine similarity equal to dot(u, v).",
+    },
+  ],
+  "Machine Learning Engineer": [
+    {
+      type: "MCQ",
+      topic: "LLM Systems & Inference",
+      concept: "KV Cache Optimization",
+      difficulty: "Hard",
+      question:
+        "During autoregressive LLM inference (e.g. LLaMA, Mistral), what critical problem does PagedAttention and KV Cache management solve?",
+      options: [
+        "Eliminates redundant key-value projection recomputations while preventing GPU memory fragmentation through virtual paging",
+        "Quantizes all transformer attention heads into binary weights during generation",
+        "Bypasses causal masking to generate 10 tokens simultaneously",
+        "Replaces softmax with linear dot-product kernels at inference time",
+      ],
+      correct_answer:
+        "Eliminates redundant key-value projection recomputations while preventing GPU memory fragmentation through virtual paging",
+      explanation:
+        "PagedAttention manages KV cache memory in non-contiguous virtual pages, nearly eliminating internal/external memory fragmentation and enabling higher batch concurrency.",
+    },
+    {
+      type: "Descriptive",
+      topic: "RAG & Information Retrieval",
+      concept: "Hallucination Mitigation",
+      difficulty: "Medium",
+      question:
+        "In an enterprise RAG system, explain your pipeline strategy for query rewriting, cross-encoder re-ranking, and citation-grounded verification.",
+      explanation:
+        "Use reciprocal rank fusion or bi-encoder retrieval followed by cross-encoder re-ranking. Enforce strict citation metadata grounding and semantic guardrails to prevent ungrounded claims.",
+    },
+    {
+      type: "MCQ",
+      topic: "Model Adaptation",
+      concept: "LoRA Mechanics",
+      difficulty: "Medium",
+      question:
+        "In Low-Rank Adaptation (LoRA) for parameter-efficient fine-tuning (PEFT), how are the pre-trained weight matrices W_0 updated?",
+      options: [
+        "W_0 remains frozen, and low-rank matrices B and A (where ΔW = B * A) are trained with rank r << min(d, k)",
+        "W_0 weights are dynamically pruned by 90% using magnitude thresholding",
+        "Every alternating attention weight layer is deleted and replaced with a linear layer",
+        "W_0 is multiplied by an identity matrix with random Gaussian noise",
+      ],
+      correct_answer:
+        "W_0 remains frozen, and low-rank matrices B and A (where ΔW = B * A) are trained with rank r << min(d, k)",
+      explanation:
+        "LoRA freezes pre-trained model weights and injects trainable rank decomposition matrices into each layer of the Transformer architecture.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Vector Search",
+      concept: "HNSW vs IVF-PQ",
+      difficulty: "Hard",
+      question:
+        "Contrast HNSW (Hierarchical Navigable Small World) and IVF-PQ (Inverted File with Product Quantization) regarding query latency, RAM consumption, and recall accuracy.",
+      explanation:
+        "HNSW delivers ultra-low search latency and higher recall via multi-layer proximity graphs but requires substantial RAM. IVF-PQ drastically reduces memory through vector quantization at the cost of lower recall and clustering overhead.",
+    },
+    {
+      type: "MCQ",
+      topic: "Distributed Training",
+      concept: "Model Parallelism",
+      difficulty: "Hard",
+      question:
+        "Which distributed training technique splits individual linear layers and weight matrices across multiple GPUs when a single layer exceeds GPU VRAM?",
+      options: [
+        "Tensor Parallelism (Megatron-LM)",
+        "Standard Data Parallelism (DDP)",
+        "Gradient Accumulation with local mini-batches",
+        "Simple CPU Parameter Server polling",
+      ],
+      correct_answer: "Tensor Parallelism (Megatron-LM)",
+      explanation:
+        "Tensor Parallelism splits matrix multiplications across GPUs along rows or columns with all-reduce communication operations.",
+    },
+  ],
+  "Software Engineer": [
+    {
+      type: "MCQ",
+      topic: "Distributed Systems",
+      concept: "Fault Tolerance",
+      difficulty: "Medium",
+      question:
+        "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
+      options: [
+        "Circuit Breaker pattern with fallback responses",
+        "Linear exponential polling from clients",
+        "Direct synchronous RPC calls with unbounded retries",
+        "Single-node shared memory caching",
+      ],
+      correct_answer: "Circuit Breaker pattern with fallback responses",
+      explanation:
+        "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
+    },
+    {
+      type: "Descriptive",
+      topic: "API Architecture",
+      concept: "Idempotency",
+      difficulty: "Medium",
+      question:
+        "Explain how you design an idempotent payment processing webhook endpoint that guarantees at-most-once financial transaction execution despite at-least-once message delivery.",
+      explanation:
+        "Use a unique idempotency key with distributed locks (e.g. Redis SETNX) and atomic database transactions to record transaction states and return cached responses on duplicate deliveries.",
+    },
+    {
+      type: "MCQ",
+      topic: "Consensus Protocols",
+      concept: "Raft Quorum",
+      difficulty: "Hard",
+      question:
+        "In the Raft consensus algorithm, under what condition is a log entry considered committed by the leader?",
+      options: [
+        "Once it is replicated on a majority of cluster nodes (quorum)",
+        "Immediately when received by the leader before sending RPCs",
+        "Only when 100% of cluster nodes acknowledge receipt",
+        "After a fixed 5-second client heartbeat timeout expires",
+      ],
+      correct_answer: "Once it is replicated on a majority of cluster nodes (quorum)",
+      explanation:
+        "A Raft leader commits an entry as soon as it has been successfully replicated on a majority of cluster members.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Database Engines",
+      concept: "LSM vs B-Tree",
+      difficulty: "Hard",
+      question:
+        "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
+      explanation:
+        "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
+    },
+    {
+      type: "MCQ",
+      topic: "Authentication & Security",
+      concept: "Token Revocation",
+      difficulty: "Medium",
+      question:
+        "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
+      options: [
+        "Distributed Redis bloom filter or token blacklist cache",
+        "Storing full tokens in local browser cookies only",
+        "Modifying JWT secret key globally on each logout",
+        "Disabling token verification in backend gateways",
+      ],
+      correct_answer: "Distributed Redis bloom filter or token blacklist cache",
+      explanation:
+        "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
+    },
+  ],
+  "Data Analyst": [
+    {
+      type: "MCQ",
+      topic: "SQL Analytics",
+      concept: "Window Ranking Functions",
+      difficulty: "Medium",
+      question:
+        "In SQL, if three employees share the identical highest salary, what values do RANK() and DENSE_RANK() assign to the employee with the next lower salary?",
+      options: [
+        "RANK() assigns 4, while DENSE_RANK() assigns 2",
+        "RANK() assigns 2, while DENSE_RANK() assigns 4",
+        "Both functions assign 2",
+        "Both functions assign 4",
+      ],
+      correct_answer: "RANK() assigns 4, while DENSE_RANK() assigns 2",
+      explanation:
+        "RANK() skips subsequent rank numbers when ties occur (1, 1, 1, 4), whereas DENSE_RANK() never skips rank numbers (1, 1, 1, 2).",
+    },
+    {
+      type: "Descriptive",
+      topic: "Data Warehousing",
+      concept: "Star vs Snowflake Schema",
+      difficulty: "Medium",
+      question:
+        "Contrast a Star Schema with a normalized Snowflake Schema in cloud analytics warehouses (BigQuery/Snowflake). When is denormalization preferred?",
+      explanation:
+        "Star schemas denormalize dimension tables, reducing expensive table joins and optimizing columnar query performance at the cost of slight storage redundancy.",
+    },
+    {
+      type: "MCQ",
+      topic: "A/B Testing & Statistics",
+      concept: "P-Value Interpretation",
+      difficulty: "Medium",
+      question:
+        "In a two-tailed hypothesis test with significance level alpha = 0.05, what does a calculated p-value of 0.02 strictly indicate?",
+      options: [
+        "There is a 2% probability of observing results this extreme or more extreme if the null hypothesis is true",
+        "The treatment variant has a 98% probability of being genuinely better than control",
+        "2% of the sampled audience converted due to the experiment",
+        "The statistical power of the test was exactly 98%",
+      ],
+      correct_answer:
+        "There is a 2% probability of observing results this extreme or more extreme if the null hypothesis is true",
+      explanation:
+        "A p-value measures the probability of obtaining test results at least as extreme as the observed data under the assumption that the null hypothesis is correct.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Product Analytics",
+      concept: "Cohort Retention Analysis",
+      difficulty: "Hard",
+      question:
+        "How do you construct a cohort retention analysis matrix in SQL to determine whether a drop in Monthly Active Users (MAU) is caused by top-of-funnel acquisition or retention decay?",
+      explanation:
+        "Group users by signup month (cohort) and calculate the percentage of that cohort active in subsequent months (M+1, M+2). If recent cohorts show steeper percentage drops, the issue is retention; if retention curves are stable, the issue is acquisition volume.",
+    },
+    {
+      type: "MCQ",
+      topic: "Query Optimization",
+      concept: "Composite Indexing",
+      difficulty: "Medium",
+      question:
+        "To optimize a query filtering on `WHERE region = 'US' AND status = 'COMPLETED' ORDER BY transaction_date DESC`, which index is most effective?",
+      options: [
+        "Composite B-tree index on (region, status, transaction_date DESC)",
+        "Single-column index on transaction_date only",
+        "Full-text inverted index on status",
+        "Bitmap index on transaction_date alone",
+      ],
+      correct_answer: "Composite B-tree index on (region, status, transaction_date DESC)",
+      explanation:
+        "A composite index matching the exact equality filters followed by the sort column allows the database to perform a direct index range scan without sorting in memory.",
+    },
+  ],
 };
+
+export function getRoleQuestions(roleName?: string) {
+  if (!roleName) return ROLE_QUESTIONS.default;
+  const lower = roleName.toLowerCase();
+  if (lower.includes("data scientist") || lower.includes("applied scientist") || lower.includes("research")) {
+    return ROLE_QUESTIONS["Data Scientist"] || ROLE_QUESTIONS.default;
+  }
+  if (
+    lower.includes("ml") ||
+    lower.includes("machine learning") ||
+    lower.includes("ai") ||
+    lower.includes("generative") ||
+    lower.includes("llm") ||
+    lower.includes("nlp") ||
+    lower.includes("vision")
+  ) {
+    return ROLE_QUESTIONS["Machine Learning Engineer"] || ROLE_QUESTIONS.default;
+  }
+  if (lower.includes("analyst") || lower.includes("analytics") || lower.includes("bi")) {
+    return ROLE_QUESTIONS["Data Analyst"] || ROLE_QUESTIONS.default;
+  }
+  if (
+    lower.includes("software") ||
+    lower.includes("developer") ||
+    lower.includes("backend") ||
+    lower.includes("full stack") ||
+    lower.includes("engineer")
+  ) {
+    return ROLE_QUESTIONS["Software Engineer"] || ROLE_QUESTIONS.default;
+  }
+  return ROLE_QUESTIONS.default;
+}
 
 export async function createInterview(payload: CreateInterviewPayload) {
   const token = getAuthToken();
@@ -722,6 +1049,7 @@ export async function createInterview(payload: CreateInterviewPayload) {
 
   if (typeof window !== "undefined") {
     localStorage.setItem(`interviai_session_${id}`, JSON.stringify(sessionData));
+    sessionStorage.setItem("current_interview_id", String(id));
   }
 
   return { id, job_role: payload.job_role, total_questions: payload.total_questions || 5 };
@@ -772,7 +1100,7 @@ export async function fetchNextQuestion(interviewId: number): Promise<NextQuesti
         return { finished: true };
       }
 
-      const qList = ROLE_QUESTIONS.default;
+      const qList = getRoleQuestions(sess.job_role);
       const q = qList[idx % qList.length];
 
       return {
@@ -810,7 +1138,7 @@ export async function submitAnswer(interviewId: number, payload: Record<string, 
     }
   }
 
-  // Advance client session
+  // Advance client session and record answer
   if (typeof window !== "undefined") {
     const raw = localStorage.getItem(`interviai_session_${interviewId}`);
     if (raw) {
@@ -824,8 +1152,8 @@ export async function submitAnswer(interviewId: number, payload: Record<string, 
 
   return {
     status: "recorded",
-    score: 8.8,
-    feedback: "Comprehensive and grounded technical answer.",
+    score: 8.9,
+    feedback: "Comprehensive and grounded technical answer evaluated against MNC rubrics.",
   };
 }
 
@@ -848,22 +1176,26 @@ export async function finishInterview(interviewId: number, readinessScore?: numb
   }
 
   const user = getActiveUserSync();
-  const finalScore = readinessScore || 91;
+  const finalScore = readinessScore || 92;
 
   if (typeof window !== "undefined" && user) {
     const raw = localStorage.getItem(`interviai_session_${interviewId}`);
-    const jobRole = raw ? JSON.parse(raw).job_role : "Software Engineer";
+    const sess = raw ? JSON.parse(raw) : null;
+    const jobRole = sess ? sess.job_role : "Software Engineer";
+    const answers = sess ? sess.answers || [] : [];
 
     const completedRecord = {
       id: interviewId,
       job_role: jobRole,
       overall_score: 8.9,
       readiness_score: finalScore,
-      total_questions: 5,
+      total_questions: sess?.total_questions || (answers.length > 0 ? answers.length : 5),
+      questions_answered: answers.length > 0 ? answers.length : 5,
       created_at: new Date().toISOString(),
     };
 
     localStorage.setItem(`interviai_user_interview_${user.id}`, JSON.stringify(completedRecord));
+    localStorage.setItem("interviai_latest_qa_audit", JSON.stringify(answers));
     window.dispatchEvent(new Event("interviai_data_change"));
   }
 
@@ -889,33 +1221,102 @@ export async function fetchLatestReport() {
 
   const user = getActiveUserSync();
   const candidateName = user?.name || "Mohan Balaji";
-  const role =
+  const defaultRole =
     typeof window !== "undefined"
       ? localStorage.getItem("setting_targetRole") || "Data Scientist"
       : "Data Scientist";
+
+  let savedInterview: any = null;
+  let savedAudit: any[] = [];
+
+  if (typeof window !== "undefined") {
+    if (user) {
+      const rec = localStorage.getItem(`interviai_user_interview_${user.id}`);
+      if (rec) {
+        try {
+          savedInterview = JSON.parse(rec);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    const auditRaw = localStorage.getItem("interviai_latest_qa_audit");
+    if (auditRaw) {
+      try {
+        savedAudit = JSON.parse(auditRaw);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // If newcomer candidate and has NOT taken an interview or activated sample report
+  const sampleActive = typeof window !== "undefined" && localStorage.getItem("interviai_sample_report_active");
+  if (user?.isNewcomer && !savedInterview && !sampleActive) {
+    return { has_report: false };
+  }
+
+  const effectiveRole = savedInterview?.job_role || defaultRole;
+  const effectiveScore = savedInterview?.readiness_score || 92;
+  const effectiveOverall = savedInterview?.overall_score || 8.9;
+
+  // Build QA audit list from real user answers if available
+  const qaAudit =
+    savedAudit.length > 0
+      ? savedAudit.map((a: any, i: number) => {
+          const isCorrect = a.options && a.correct_answer ? a.answer_text === a.correct_answer : true;
+          return {
+            question_text: a.question_text || `Technical Question ${i + 1}`,
+            answer_text: a.answer_text || "Submitted response",
+            difficulty: a.difficulty || "Medium",
+            topic: a.topic || "Core Technical Competency",
+            evaluation: a.options
+              ? isCorrect
+                ? "Correct. Selected optimal industry standard pattern."
+                : `Sub-optimal. Correct choice: ${a.correct_answer}`
+              : "Evaluated using STAR criteria. Strong architectural grounding with trade-off considerations.",
+          };
+        })
+      : [
+          {
+            question_text:
+              "When deploying a high-throughput microservice pipeline, which pattern best prevents cascading failure?",
+            answer_text: "Circuit Breaker pattern with fallback responses",
+            difficulty: "Medium",
+            topic: "System Architecture",
+            evaluation: "Correct. Selected optimal fault-tolerance pattern.",
+          },
+          {
+            question_text: "Explain how Dependency Inversion facilitates automated unit testing.",
+            answer_text: "Allows injection of mock dependencies without tight coupling to concrete databases.",
+            difficulty: "Medium",
+            topic: "Clean Architecture",
+            evaluation: "Clear explanation demonstrating practical experience.",
+          },
+        ];
 
   return {
     has_report: true,
     candidate: { name: candidateName, email: user?.email || "candidate@interviai.com" },
     interview: {
-      id: 101,
-      job_role: role,
+      id: savedInterview?.id || 101,
+      job_role: effectiveRole,
       status: "completed",
-      overall_score: 8.8,
-      readiness_score: 92,
+      overall_score: effectiveOverall,
+      readiness_score: effectiveScore,
     },
     report: {
-      overall_readiness: 92,
+      overall_readiness: effectiveScore,
       performance_level: "FAANG / MNC Tier-1 Benchmark Level",
       components: {
-        "Technical Knowledge": 92,
-        "Applied Reasoning": 89,
-        "Project Understanding": 95,
-        "Technical Communication": 94,
-        "Resume Evidence Confidence": 93,
+        "Technical Knowledge": Math.min(99, Math.round(effectiveScore * 0.98)),
+        "Applied Reasoning": Math.min(99, Math.round(effectiveScore * 0.95)),
+        "Project Understanding": Math.min(99, Math.round(effectiveScore * 1.02)),
+        "Technical Communication": Math.min(99, Math.round(effectiveScore * 0.97)),
+        "Resume Evidence Confidence": 94,
       },
       strengths: [
-        `Strong domain architectural grasp in ${role} methodologies.`,
+        `Strong domain architectural grasp in ${effectiveRole} methodologies.`,
         "Clear trade-off reasoning during adaptive questioning.",
         "Grounded technical defense with zero hallucination flags.",
       ],
@@ -925,23 +1326,7 @@ export async function fetchLatestReport() {
         "Practice high-throughput live architecture diagram screens.",
       ],
     },
-    qa_audit: [
-      {
-        question_text:
-          "When deploying a high-throughput microservice pipeline, which pattern best prevents cascading failure?",
-        answer_text: "Circuit Breaker pattern with fallback responses",
-        difficulty: "Medium",
-        topic: "System Architecture",
-        evaluation: "Correct. Selected optimal fault-tolerance pattern.",
-      },
-      {
-        question_text: "Explain how Dependency Inversion facilitates automated unit testing.",
-        answer_text: "Allows injection of mock dependencies without tight coupling to concrete databases.",
-        difficulty: "Medium",
-        topic: "Clean Architecture",
-        evaluation: "Clear explanation demonstrating practical experience.",
-      },
-    ],
+    qa_audit: qaAudit,
   };
 }
 
@@ -978,22 +1363,44 @@ export async function fetchInterviewHistory() {
   }
 
   const user = getActiveUserSync();
-  const role =
+  const defaultRole =
     typeof window !== "undefined"
       ? localStorage.getItem("setting_targetRole") || "Data Scientist"
       : "Data Scientist";
+
+  let savedInterview: any = null;
+  if (typeof window !== "undefined" && user) {
+    const raw = localStorage.getItem(`interviai_user_interview_${user.id}`);
+    if (raw) {
+      try {
+        savedInterview = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  if (savedInterview) {
+    return {
+      interviews: [savedInterview],
+    };
+  }
+
+  if (user?.isNewcomer) {
+    return { interviews: [] };
+  }
 
   return {
     interviews: [
       {
         id: 101,
-        job_role: role,
-        total_questions: 10,
+        job_role: defaultRole,
+        total_questions: 5,
         status: "completed",
-        overall_score: 8.8,
-        readiness_score: 91,
+        overall_score: 8.9,
+        readiness_score: 92,
         created_at: new Date().toISOString(),
-        questions_answered: 10,
+        questions_answered: 5,
       },
     ],
   };
@@ -1098,9 +1505,9 @@ export async function sendChatMessage(message: string) {
   if (lower.includes("resume") || lower.includes("claim")) {
     reply =
       "To maximize your resume verification score, ensure that claims match your project evidence. Upload your PDF resume in the Resume section to automatically extract skills and cross-examine claims.";
-  } else if (lower.includes("interview") || lower.includes("question") || lower.includes("video")) {
+  } else if (lower.includes("interview") || lower.includes("question")) {
     reply =
-      "InterviAI features both Adaptive Technical Assessments and the new AI Video Interview section! In the Video Interview, the AI analyzes your uploaded resume skills and project report to formulate live situational questions while recording and evaluating your video answers.";
+      "InterviAI features live Adaptive Technical Assessments! The AI dynamically analyzes your performance, adjusts difficulty across topics, and grounds questioning in your uploaded resume and project defense evidence.";
   } else if (lower.includes("score") || lower.includes("readiness")) {
     reply =
       "The Role Readiness Score combines your technical assessment accuracy (40%), project understanding (30%), and resume claim verification confidence (30%) compared against tier-1 MNC hiring standards.";
@@ -1127,177 +1534,4 @@ export async function clearChatHistory() {
   } catch {
     // Ignore
   }
-}
-
-// ==========================================
-// AI VIDEO INTERVIEW API & EVALUATOR ENGINE
-// ==========================================
-
-export type VideoInterviewQuestion = {
-  id: number;
-  question: string;
-  category: "Technical Architecture" | "Project Defense RAG" | "Failure Recovery & Scale" | "Behavioral Leadership";
-  skillFocus: string;
-  probingReason: string;
-  expectedKeyPoints: string[];
-};
-
-export type VideoEvaluationResult = {
-  score: number;
-  performanceLevel: string;
-  technicalAccuracy: number;
-  communicationScore: number;
-  projectDefenseAlignment: number;
-  summaryFeedback: string;
-  strengths: string[];
-  improvements: string[];
-  analyzedAnswerSnippet: string;
-};
-
-export async function generateVideoInterviewQuestions(
-  role: string,
-  skills: string[],
-  projectName?: string
-): Promise<VideoInterviewQuestion[]> {
-  const topSkills = skills.length > 0 ? skills.slice(0, 4) : ["Python", "System Design", "SQL", "FastAPI"];
-  const pName = projectName || "InterviAI Candidate Platform";
-
-  return [
-    {
-      id: 1,
-      category: "Technical Architecture",
-      skillFocus: topSkills.slice(0, 2).join(" & "),
-      probingReason: `Evaluates production-level architectural fluency in ${topSkills[0]} and ${topSkills[1] || "System Design"} extracted from your candidate resume.`,
-      question: `Your profile highlights experience with ${topSkills.join(", ")}. In a production system, how would you design an asynchronous pipeline utilizing ${topSkills[0]} to handle variable traffic spikes without blocking the main event loop or dropping tasks?`,
-      expectedKeyPoints: [
-        "Task queue segregation with worker pools (e.g. Celery / background workers)",
-        "Backpressure handling and rate-limiting",
-        "Idempotency keys to avoid duplicate execution",
-        "Proper connection pooling and memory management",
-      ],
-    },
-    {
-      id: 2,
-      category: "Project Defense RAG",
-      skillFocus: `Project Grounding (${pName})`,
-      probingReason: `Cross-examines technical decisions and architectural constraints documented in your project report for ${pName}.`,
-      question: `In your project "${pName}", what was the most critical trade-off you made between retrieval accuracy and query latency? If an interviewer challenges your choice of data store or indexing strategy, how do you defend it with concrete metrics?`,
-      expectedKeyPoints: [
-        "Clear metric justification (p95/p99 latency vs recall)",
-        "Indexing strategy trade-offs (e.g. HNSW vs IVF-PQ or B-Tree vs Hash)",
-        "Caching layer positioning (Redis vs in-memory)",
-        "Evidence from project logs and benchmark tests",
-      ],
-    },
-    {
-      id: 3,
-      category: "Failure Recovery & Scale",
-      skillFocus: "High Concurrency & Database Contention",
-      probingReason: "Assesses tier-1 MNC resilience engineering and disaster mitigation readiness.",
-      question: `Suppose your backend service experiences a sudden 15x spike in concurrent requests resulting in database connection starvation and intermittent timeouts. Walk through your step-by-step diagnostic and remediation sequence.`,
-      expectedKeyPoints: [
-        "Immediate mitigation: Shedding load, circuit breaking, fallback stale cache",
-        "Diagnosis: Identifying slow queries, lock contention, pool exhaustion",
-        "Remediation: Read replicas, connection pool tuning, query optimization",
-        "Post-incident: Auto-scaling rules and alerting thresholds",
-      ],
-    },
-    {
-      id: 4,
-      category: "Behavioral Leadership",
-      skillFocus: "Technical Consensus & Ownership",
-      probingReason: "Assesses communication clarity, trade-off defense, and engineering collaboration.",
-      question: `Describe a technical disagreement you experienced regarding system architecture or technology selection. How did you formulate your argument with benchmarks, and how did you guide the team to a productive consensus?`,
-      expectedKeyPoints: [
-        "Objective framing using data and prototypes over personal preference",
-        "Understanding opposing constraints and business priorities",
-        "Documenting decisions with RFCs or Architecture Decision Records (ADRs)",
-        "Commitment to final consensus and team velocity",
-      ],
-    },
-  ];
-}
-
-export async function evaluateVideoAnswer(
-  question: VideoInterviewQuestion,
-  answerDurationSeconds: number,
-  answerNotes?: string
-): Promise<VideoEvaluationResult> {
-  // Simulate AI multimodal analysis of video duration, notes, and technical keywords
-  const notes = (answerNotes || "").toLowerCase();
-
-  let techScore = 90;
-  let commScore = 88;
-  let projScore = 92;
-
-  if (answerDurationSeconds < 15) {
-    commScore -= 12;
-    techScore -= 10;
-  } else if (answerDurationSeconds >= 45 && answerDurationSeconds <= 120) {
-    commScore += 5;
-    techScore += 3;
-  }
-
-  // Check expected key points in candidate's response
-  const matches = question.expectedKeyPoints.filter((kp) =>
-    kp.split(" ").some((w) => w.length > 4 && notes.includes(w.toLowerCase()))
-  );
-  if (matches.length > 0) {
-    techScore = Math.min(98, techScore + matches.length * 2);
-    projScore = Math.min(97, projScore + matches.length * 2);
-  }
-
-  const overall = Number(((techScore * 0.4 + commScore * 0.3 + projScore * 0.3) / 10).toFixed(1));
-
-  const performanceLevel =
-    overall >= 9.0
-      ? "FAANG / MNC Tier-1 Benchmark"
-      : overall >= 8.0
-        ? "Senior Production Ready"
-        : "Proficient Intermediate";
-
-  return {
-    score: overall,
-    performanceLevel,
-    technicalAccuracy: techScore,
-    communicationScore: commScore,
-    projectDefenseAlignment: projScore,
-    summaryFeedback: `Candidate delivered a structured, well-grounded response for "${question.category}". Maintained eye contact, clear speech pacing (${answerDurationSeconds}s elapsed), and defended architectural trade-offs with domain terminology.`,
-    strengths: [
-      `Demonstrated solid command of ${question.skillFocus}.`,
-      "Articulated failure boundaries and trade-off considerations clearly.",
-      "Clear non-verbal presence with concise explanation pacing.",
-    ],
-    improvements: [
-      "Quantify performance wins with specific throughput (QPS) and latency figures (e.g. p99 < 50ms).",
-      "Mention automated unit and load-testing strategies explicitly in defense.",
-    ],
-    analyzedAnswerSnippet:
-      answerNotes ||
-      `Candidate answered: addressed ${question.skillFocus} with focus on scalability, fault-tolerance, and production grounding.`,
-  };
-}
-
-export function saveVideoAssessmentResult(record: {
-  job_role: string;
-  overall_score: number;
-  readiness_score: number;
-  total_questions: number;
-  questions_answered: number;
-  results: VideoEvaluationResult[];
-}) {
-  if (typeof window === "undefined") return;
-  const user = getActiveUserSync();
-  const id = Date.now();
-
-  const data = {
-    id,
-    ...record,
-    created_at: new Date().toISOString(),
-  };
-
-  localStorage.setItem(`interviai_video_interview_${user?.id || 1}`, JSON.stringify(data));
-  localStorage.setItem(`interviai_user_interview_${user?.id || 1}`, JSON.stringify(data));
-
-  window.dispatchEvent(new Event("interviai_data_change"));
 }

@@ -13,7 +13,6 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  Video,
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
@@ -131,9 +130,9 @@ export default function ProjectWorkspacePage() {
           </div>
           <div className="flex items-center gap-2">
             {isProjectActive && (
-              <Link href="/video-interview">
+              <Link href="/interview">
                 <Button type="button" size="sm" className="bg-gradient-to-r from-amber-600 to-violet-600 hover:from-amber-500 hover:to-violet-500 text-xs">
-                  <Video size={14} /> AI Video Defense
+                  Start Project Defense <ArrowRight size={13} />
                 </Button>
               </Link>
             )}
@@ -326,7 +325,7 @@ export default function ProjectWorkspacePage() {
                 <Lightbulb size={24} className="mx-auto text-amber-400/80" />
                 <p className="text-xs text-slate-300 font-medium">Ready to test project defense?</p>
                 <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                  Click &ldquo;Generate MNC Defense Questions&rdquo; or launch the AI Video Interview to practice defending your project on camera.
+                  Click &ldquo;Generate MNC Defense Questions&rdquo; or launch the Adaptive Technical Assessment to practice defending your project.
                 </p>
               </div>
             ) : (
@@ -336,9 +335,9 @@ export default function ProjectWorkspacePage() {
             )}
 
             {isProjectActive && (
-              <Link href="/video-interview" className="block pt-2">
+              <Link href="/interview" className="block pt-2">
                 <Button type="button" className="w-full text-xs bg-gradient-to-r from-violet-600 to-indigo-600">
-                  <Video size={14} /> Practice in AI Video Interview <ArrowRight size={14} />
+                  <ShieldCheck size={14} /> Practice Project Defense <ArrowRight size={14} />
                 </Button>
               </Link>
             )}
