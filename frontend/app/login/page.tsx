@@ -8,14 +8,16 @@ import {
   EyeOff,
   Lock,
   Mail,
+  Sparkles,
   User,
   UserCheck,
   UserPlus,
+  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
-import { fetchCurrentUser, login, register } from "@/lib/auth";
+import { fetchCurrentUser, login, loginAsDemoUser, loginAsNewcomer, register } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +29,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export default function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setSuccessMsg("");
 
     const cleanEmail = email.trim();
     if (!cleanEmail || !password) {
@@ -65,17 +69,40 @@ export default function LoginPage() {
     try {
       if (mode === "register") {
         await register(name.trim(), cleanEmail, password);
+        setSuccessMsg("Account created successfully! Redirecting to dashboard...");
       } else {
         await login(cleanEmail, password);
+        setSuccessMsg("Signed in successfully! Redirecting to dashboard...");
       }
-      router.replace("/");
+      setTimeout(() => {
+        router.replace("/");
+      }, 400);
     } catch (err: any) {
       const msg = err?.message || "Authentication failed. Please check your credentials and try again.";
       setError(msg);
-    } finally {
       setSubmitting(false);
     }
   }
+
+  const handleQuickDemoLogin = async () => {
+    setSubmitting(true);
+    setError("");
+    setSuccessMsg("Signing in as Mohan Balaji (Showcase Profile)...");
+    await loginAsDemoUser("mohanbalaji1810@gmail.com", "Mohan Balaji");
+    setTimeout(() => {
+      router.replace("/");
+    }, 400);
+  };
+
+  const handleQuickNewcomerLogin = async () => {
+    setSubmitting(true);
+    setError("");
+    setSuccessMsg("Signing in as New Candidate (Fresh Workspace)...");
+    await loginAsNewcomer("newcomer@interviai.com", "New Candidate");
+    setTimeout(() => {
+      router.replace("/");
+    }, 400);
+  };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070b12] px-4 py-8 text-slate-100 sm:px-6">
@@ -85,17 +112,17 @@ export default function LoginPage() {
         <div className="login-grid" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[440px] animate-page-in">
+      <div className="relative z-10 w-full max-w-[460px] animate-page-in">
         <header className="mb-6 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-lg font-semibold text-white shadow-xl shadow-violet-950/40 animate-logo-in">
             I
           </div>
           <h1 className="mt-3 text-2xl font-bold tracking-tight text-white">InterviAI</h1>
           <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-violet-400 font-semibold">
-            AI Interview & Candidate Intelligence
+            Adaptive AI Interview & Candidate Intelligence
           </p>
           <p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-slate-400">
-            Sign in to access your dashboard or create a new account.
+            Sign in to access your assessment dashboard or create a new candidate account.
           </p>
         </header>
 
@@ -108,11 +135,13 @@ export default function LoginPage() {
               onClick={() => {
                 setMode("login");
                 setError("");
+                setSuccessMsg("");
               }}
-              className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-lg transition cursor-pointer ${mode === "login"
-                ? "bg-violet-600 text-white shadow-md shadow-violet-950/40"
-                : "text-slate-400 hover:text-white"
-                }`}
+              className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                mode === "login"
+                  ? "bg-violet-600 text-white shadow-md shadow-violet-950/40"
+                  : "text-slate-400 hover:text-white"
+              }`}
             >
               <UserCheck size={14} />
               Sign In
@@ -123,11 +152,13 @@ export default function LoginPage() {
               onClick={() => {
                 setMode("register");
                 setError("");
+                setSuccessMsg("");
               }}
-              className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-lg transition cursor-pointer ${mode === "register"
-                ? "bg-violet-600 text-white shadow-md shadow-violet-950/40"
-                : "text-slate-400 hover:text-white"
-                }`}
+              className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                mode === "register"
+                  ? "bg-violet-600 text-white shadow-md shadow-violet-950/40"
+                  : "text-slate-400 hover:text-white"
+              }`}
             >
               <UserPlus size={14} />
               Sign Up
@@ -136,12 +167,12 @@ export default function LoginPage() {
 
           <div className="mb-5">
             <h2 className="text-xl font-semibold tracking-[-0.03em] text-white">
-              {mode === "login" ? "Welcome Back" : "Create Account"}
+              {mode === "login" ? "Welcome Back" : "Create Candidate Account"}
             </h2>
             <p className="mt-1 text-xs text-slate-400">
               {mode === "login"
-                ? "Enter your email and password to access your dashboard and assessments."
-                : "Register with your details to start using InterviAI."}
+                ? "Enter your credentials to access your dashboard, assessments, and reports."
+                : "Register with your details to start practicing with our adaptive AI interviewer."}
             </p>
           </div>
 
@@ -157,7 +188,7 @@ export default function LoginPage() {
                   minLength={2}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="e.g. Alex Morgan"
+                  placeholder="e.g. Mohan Balaji"
                   autoComplete="name"
                   className="auth-input text-xs"
                 />
@@ -238,6 +269,7 @@ export default function LoginPage() {
               </label>
             ) : null}
 
+            {/* Error Message */}
             {error ? (
               <div
                 role="alert"
@@ -262,6 +294,17 @@ export default function LoginPage() {
               </div>
             ) : null}
 
+            {/* Success Message */}
+            {successMsg ? (
+              <div
+                role="status"
+                className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200"
+              >
+                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            ) : null}
+
             <button
               disabled={submitting}
               type="submit"
@@ -271,7 +314,7 @@ export default function LoginPage() {
                 mode === "login" ? "Signing In..." : "Creating Account..."
               ) : (
                 <>
-                  <span>{mode === "login" ? "Sign In" : "Create Account"}</span>
+                  <span>{mode === "login" ? "Sign In to InterviAI" : "Create Account & Sign In"}</span>
                   <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
@@ -281,12 +324,13 @@ export default function LoginPage() {
             <div className="text-center pt-2">
               {mode === "login" ? (
                 <p className="text-xs text-slate-400">
-                  Don't have an account?{" "}
+                  Don&apos;t have an account?{" "}
                   <button
                     type="button"
                     onClick={() => {
                       setMode("register");
                       setError("");
+                      setSuccessMsg("");
                     }}
                     className="font-semibold text-violet-400 hover:text-violet-300 underline cursor-pointer"
                   >
@@ -301,6 +345,7 @@ export default function LoginPage() {
                     onClick={() => {
                       setMode("login");
                       setError("");
+                      setSuccessMsg("");
                     }}
                     className="font-semibold text-violet-400 hover:text-violet-300 underline cursor-pointer"
                   >
@@ -310,6 +355,46 @@ export default function LoginPage() {
               )}
             </div>
           </form>
+
+          {/* Quick Access Buttons for Evaluators and Reviewers */}
+          <div className="mt-5 pt-4 border-t border-white/10 space-y-2">
+            <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2">
+              <Zap size={12} className="text-amber-400" />
+              <span>Instant 1-Click Fast Pass</span>
+            </div>
+
+            {/* Showcase Pre-Filled Demo */}
+            <button
+              type="button"
+              onClick={handleQuickDemoLogin}
+              disabled={submitting}
+              className="w-full py-2.5 px-3 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20 text-xs font-semibold flex items-center justify-between transition cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <UserCheck size={14} className="text-violet-300" />
+                Explore Demo Profile (Mohan Balaji)
+              </span>
+              <span className="text-[10px] bg-violet-500/20 px-2 py-0.5 rounded text-violet-300 font-medium">
+                91% Scorecard
+              </span>
+            </button>
+
+            {/* Blank Newcomer Profile */}
+            <button
+              type="button"
+              onClick={handleQuickNewcomerLogin}
+              disabled={submitting}
+              className="w-full py-2.5 px-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 text-xs font-semibold flex items-center justify-between transition cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <UserPlus size={14} className="text-emerald-400" />
+                Explore Fresh Candidate Workspace
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-300 font-medium">
+                0% New Profile
+              </span>
+            </button>
+          </div>
         </section>
       </div>
     </main>
