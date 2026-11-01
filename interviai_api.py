@@ -68,6 +68,11 @@ def startup():
     init_db()
 
 
+@app.get('/health')
+def health_check():
+    return {"status": "ok", "service": "InterviAI API"}
+
+
 def get_db():
     db = SessionLocal()
     try:

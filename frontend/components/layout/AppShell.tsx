@@ -7,7 +7,7 @@ import { useEffect } from "react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
-import { DEMO_USER_KEY, fetchCurrentUser, getAuthToken, logout } from "@/lib/auth";
+import { fetchCurrentUser, getAuthToken, logout } from "@/lib/auth";
 import { fetchDashboardData } from "@/lib/api";
 import { HelpChatbot } from "@/components/chatbot/HelpChatbot";
 
@@ -25,8 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     const token = getAuthToken();
-    const demo = typeof window !== "undefined" ? localStorage.getItem(DEMO_USER_KEY) : null;
-    if (!token && !demo) {
+    if (!token) {
       setCheckingAuth(false);
       router.replace("/login");
       return;

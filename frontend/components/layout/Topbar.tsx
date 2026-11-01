@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { fetchCurrentUser, logout, loginAsDemoUser, loginAsNewcomer, type AuthUser } from "@/lib/auth";
+import { fetchCurrentUser, logout, type AuthUser } from "@/lib/auth";
 
 const routeTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -93,24 +93,12 @@ export function Topbar({
         .map((p) => p[0].toUpperCase())
         .slice(0, 2)
         .join("")
-    : user?.isNewcomer
-      ? "NC"
-      : "MB";
+    : "ID";
 
   const handleLogout = async () => {
     setShowProfileMenu(false);
     await logout();
     router.replace("/login");
-  };
-
-  const handleSwitchMode = async (toNewcomer: boolean) => {
-    if (toNewcomer) {
-      await loginAsNewcomer("newcomer@interviai.com", "New Candidate");
-    } else {
-      await loginAsDemoUser("mohanbalaji1810@gmail.com", "Mohan Balaji");
-    }
-    setShowProfileMenu(false);
-    router.replace("/");
   };
 
   const searchResults = [
@@ -208,20 +196,11 @@ export function Topbar({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-white">
-                      {user?.name || (user?.isNewcomer ? "New Candidate" : "Mohan Balaji")}
+                      {user?.name || "Candidate"}
                     </p>
                     <p className="truncate text-xs text-slate-400">
-                      {user?.email || (user?.isNewcomer ? "newcomer@interviai.com" : "mohanbalaji1810@gmail.com")}
+                      {user?.email || "candidate@interviai.com"}
                     </p>
-                    <span
-                      className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                        user?.isNewcomer
-                          ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
-                          : "bg-violet-500/10 text-violet-300 border-violet-500/20"
-                      }`}
-                    >
-                      {user?.isNewcomer ? "Newcomer Profile (Blank)" : "Showcase Profile (Mohan Balaji)"}
-                    </span>
                   </div>
                 </div>
 
@@ -283,37 +262,6 @@ export function Topbar({
                     <Settings size={15} className="text-slate-400" />
                     <span>Platform Settings</span>
                   </Link>
-                </div>
-
-                {/* Candidate Workspace Mode Switcher */}
-                <div className="border-t border-white/10 pt-2.5">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-2 mb-1.5">
-                    Profile Switcher
-                  </p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchMode(true)}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-medium border text-center transition cursor-pointer ${
-                        user?.isNewcomer
-                          ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200 font-semibold"
-                          : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      Newcomer (0%)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchMode(false)}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-medium border text-center transition cursor-pointer ${
-                        !user?.isNewcomer
-                          ? "bg-violet-500/20 border-violet-500/40 text-violet-200 font-semibold"
-                          : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      Demo (91%)
-                    </button>
-                  </div>
                 </div>
 
                 {/* Log Out Action */}

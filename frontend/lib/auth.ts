@@ -27,7 +27,7 @@ export function clearAuthToken(): void {
 
 async function authRequest(path: string, payload?: Record<string, string>) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
   const token = getAuthToken();
 
   const headers: Record<string, string> = {};
@@ -60,7 +60,10 @@ async function authRequest(path: string, payload?: Record<string, string>) {
     return result;
   } catch (err: any) {
     if (err.name === "AbortError" || err.message?.includes("aborted")) {
-      throw new Error("Unable to reach backend API server. Connection timed out.");
+      throw new Error(`Unable to reach backend API at ${API_URL}. Connection timed out.`);
+    }
+    if (err.name === "TypeError" || err.message?.includes("Failed to fetch")) {
+      throw new Error(`Cannot connect to backend server at ${API_URL}. Please ensure your FastAPI backend is running.`);
     }
     throw err;
   } finally {
@@ -117,19 +120,8 @@ export async function loginAsNewcomer(email = "newcomer@interviai.com", name = "
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
-  // Check local demo/newcomer session first if explicitly chosen
   if (typeof window !== "undefined") {
-    const saved = localStorage.getItem(DEMO_USER_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved) as AuthUser;
-      } catch {
-        localStorage.removeItem(DEMO_USER_KEY);
-      }
-    }
-
     // Fast synchronous check: If there is no token, user is unauthenticated.
-    // Avoid making an unnecessary 12-second network request to /auth/me that causes cold-start lag.
     const token = getAuthToken();
     if (!token) {
       return null;
