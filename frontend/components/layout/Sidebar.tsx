@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BriefcaseBusiness, FileText, Gauge, LayoutGrid, LogOut, MessageSquareText, Settings } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, FileText, Gauge, LayoutGrid, LogOut, MessageSquareText, Settings, Video } from "lucide-react";
 
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutGrid },
   { href: "/interview", label: "Interviews", icon: MessageSquareText },
+  { href: "/video-interview", label: "AI Video Interview", icon: Video },
   { href: "/projects", label: "Projects", icon: BriefcaseBusiness },
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },

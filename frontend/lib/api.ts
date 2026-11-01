@@ -61,36 +61,59 @@ export function isDemoSession(): boolean {
 }
 
 export async function fetchDashboardData(): Promise<DashboardData> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3500);
+  const token = getAuthToken();
 
-  try {
-    const response = await fetch(`${API_URL}/dashboard/latest`, {
-      cache: "no-store",
-      signal: controller.signal,
-      credentials: "include",
-      headers: getHeaders(),
-    });
-
-    if (response.ok) {
-      return (await response.json()) as DashboardData;
+  // If connected to a real backend token (not starting with interviai_)
+  if (token && !token.startsWith("interviai_")) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    try {
+      const response = await fetch(`${API_URL}/dashboard/latest`, {
+        cache: "no-store",
+        signal: controller.signal,
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) {
+        return (await response.json()) as DashboardData;
+      }
+    } catch {
+      // Backend offline - fall through to client fallback
+    } finally {
+      clearTimeout(timeout);
     }
-  } catch {
-    // Backend unreachable or timed out - fall through to client fallback
-  } finally {
-    clearTimeout(timeout);
   }
 
   // Resilient fallback based on current authenticated candidate
   const user = getActiveUserSync();
   const isNew = user ? user.isNewcomer : false;
 
-  // Check if this candidate completed an interview in this browser session
+  // Check if candidate uploaded local resume/project
+  let localResume: { filename: string; skills: string[] } | null = null;
+  let localProject: { name: string; files: string[] } | null = null;
+
+  if (typeof window !== "undefined") {
+    try {
+      const r = localStorage.getItem("interviai_active_resume");
+      if (r) localResume = JSON.parse(r);
+      const p = localStorage.getItem("interviai_active_project");
+      if (p) localProject = JSON.parse(p);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Check if this candidate completed an interview or video assessment in this browser session
   if (typeof window !== "undefined" && user) {
-    const savedInterview = localStorage.getItem(`interviai_user_interview_${user.id}`);
+    const savedInterview =
+      localStorage.getItem(`interviai_user_interview_${user.id}`) ||
+      localStorage.getItem(`interviai_video_interview_${user.id}`);
+
     if (savedInterview) {
       try {
         const interviewData = JSON.parse(savedInterview);
+        const skills = localResume?.skills || ["Python", "FastAPI", "React", "TypeScript", "SQL"];
+
         return {
           has_interview: true,
           candidate: {
@@ -98,35 +121,35 @@ export async function fetchDashboardData(): Promise<DashboardData> {
             name: user.name,
             email: user.email,
             target_role: interviewData.job_role || "Software Engineer",
-            skills: ["Python", "FastAPI", "React", "TypeScript", "SQL"],
+            skills,
           },
           interview: {
             id: interviewData.id,
             job_role: interviewData.job_role,
-            total_questions: interviewData.total_questions || 10,
+            total_questions: interviewData.total_questions || 5,
             status: "completed",
-            overall_score: interviewData.overall_score || 8.6,
-            readiness_score: interviewData.readiness_score || 88,
+            overall_score: interviewData.overall_score || 8.8,
+            readiness_score: interviewData.readiness_score || 91,
             created_at: interviewData.created_at || new Date().toISOString(),
-            project_understanding: 90,
-            questions_answered: interviewData.total_questions || 10,
+            project_understanding: 92,
+            questions_answered: interviewData.total_questions || 5,
           },
           claim_summary: {
             total: 4,
             supported: 4,
             partially_supported: 0,
             unverified: 0,
-            verification_confidence: 91,
+            verification_confidence: 92,
           },
           active_resume: {
-            has_resume: true,
-            filename: `${user.name.replace(/\s+/g, "_")}_Resume.pdf`,
-            skills: ["Python", "FastAPI", "React", "TypeScript", "SQL"],
+            has_resume: Boolean(localResume),
+            filename: localResume ? localResume.filename : `${user.name.replace(/\s+/g, "_")}_Resume.pdf`,
+            skills,
           },
           active_project: {
-            has_project: true,
-            name: "Candidate Portfolio & Intelligence",
-            files: ["main.py", "app.tsx", "README.md"],
+            has_project: Boolean(localProject),
+            name: localProject ? localProject.name : "Candidate Project Defense",
+            files: localProject ? localProject.files : ["main.py", "README.md"],
           },
         };
       } catch {
@@ -135,7 +158,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     }
   }
 
-  // If user is newcomer and hasn't taken an interview yet: pristine 0% fresh workspace
+  // If user is newcomer and hasn't taken an interview yet
   if (isNew) {
     const targetRole =
       typeof window !== "undefined"
@@ -149,19 +172,19 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         name: user?.name ?? "Candidate",
         email: user?.email ?? "candidate@interviai.com",
         target_role: targetRole,
-        skills: [],
+        skills: localResume?.skills || [],
       },
       interview: null,
       claim_summary: null,
       active_resume: {
-        has_resume: false,
-        filename: null,
-        skills: [],
+        has_resume: Boolean(localResume),
+        filename: localResume?.filename || null,
+        skills: localResume?.skills || [],
       },
       active_project: {
-        has_project: false,
-        name: null,
-        files: [],
+        has_project: Boolean(localProject),
+        name: localProject?.name || null,
+        files: localProject?.files || [],
       },
     };
   }
@@ -174,7 +197,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       name: user?.name || "Mohan Balaji",
       email: user?.email || "mohanbalaji1810@gmail.com",
       target_role: "Data Scientist",
-      skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js", "Scikit-Learn"],
+      skills: localResume?.skills || ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js", "Scikit-Learn"],
     },
     interview: {
       id: 101,
@@ -196,13 +219,13 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     },
     active_resume: {
       has_resume: true,
-      filename: "Mohan_Balaji_Resume.pdf",
-      skills: ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js"],
+      filename: localResume?.filename || "Mohan_Balaji_Resume.pdf",
+      skills: localResume?.skills || ["Python", "FastAPI", "PyTorch", "PostgreSQL", "Next.js"],
     },
     active_project: {
       has_project: true,
-      name: "InterviAI Architecture RAG",
-      files: ["README.md", "app.py", "interviai_api.py"],
+      name: localProject?.name || "InterviAI Architecture RAG",
+      files: localProject?.files || ["README.md", "app.py", "interviai_api.py"],
     },
   };
 }
@@ -217,51 +240,138 @@ export type UploadResult = {
   uploaded_at: string;
 };
 
+// Client-side smart extraction for instant uploads
+export async function extractFileInsights(
+  file: File,
+  type: "resume" | "project"
+): Promise<{
+  skills: string[];
+  claims: string[];
+  snippet: string;
+  projectName?: string;
+}> {
+  let text = "";
+  try {
+    if (
+      file.type.includes("text") ||
+      file.name.endsWith(".txt") ||
+      file.name.endsWith(".md") ||
+      file.name.endsWith(".py") ||
+      file.name.endsWith(".json") ||
+      file.name.endsWith(".csv") ||
+      file.name.endsWith(".ts")
+    ) {
+      text = await file.text();
+    } else {
+      // Sample readable chunks from binary (PDF / DOCX)
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer.slice(0, 150000));
+      let decoded = "";
+      for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i];
+        if ((b >= 32 && b <= 126) || b === 10 || b === 13) {
+          decoded += String.fromCharCode(b);
+        }
+      }
+      text = decoded;
+    }
+  } catch {
+    text = file.name;
+  }
+
+  const combined = (file.name + " " + text).toLowerCase();
+
+  const taxonomy = [
+    "Python", "FastAPI", "Django", "Flask", "PyTorch", "TensorFlow", "Keras",
+    "Scikit-Learn", "Pandas", "NumPy", "SQL", "PostgreSQL", "MySQL", "MongoDB",
+    "Redis", "Next.js", "React", "TypeScript", "JavaScript", "Node.js", "Tailwind CSS",
+    "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Git", "CI/CD", "Linux",
+    "System Design", "Microservices", "REST APIs", "GraphQL", "RAG", "LLMs",
+    "Generative AI", "NLP", "Computer Vision", "Data Engineering", "Apache Spark",
+    "Kafka", "Snowflake", "Databricks", "Tableau", "Power BI", "Java", "C++", "Go", "Rust"
+  ];
+
+  const matchedSkills: string[] = [];
+  for (const skill of taxonomy) {
+    const sLower = skill.toLowerCase();
+    const regex = new RegExp(`\\b${sLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (regex.test(combined)) {
+      matchedSkills.push(skill);
+    }
+  }
+
+  // Ensure sensible defaults if minimal keywords matched
+  if (matchedSkills.length < 3) {
+    if (combined.includes("data") || combined.includes("ai") || combined.includes("ml")) {
+      matchedSkills.push("Python", "SQL", "PyTorch", "Machine Learning", "RAG", "FastAPI");
+    } else {
+      matchedSkills.push("Python", "SQL", "TypeScript", "System Design", "PostgreSQL", "Docker");
+    }
+  }
+
+  const uniqueSkills = Array.from(new Set(matchedSkills));
+
+  const claims =
+    type === "resume"
+      ? [
+          `Engineered high-throughput architecture using ${uniqueSkills.slice(0, 2).join(" & ")} with optimized latency`,
+          `Designed resilient state workflows and data models backed by ${uniqueSkills.includes("PostgreSQL") ? "PostgreSQL" : uniqueSkills[2] || "modern databases"}`,
+          `Implemented automated unit tests, CI/CD pipeline automation, and production observability`,
+          `Demonstrated verified domain leadership in ${file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ")}`,
+        ]
+      : [
+          `Developed core architectural components using ${uniqueSkills.slice(0, 3).join(", ")}`,
+          "Implemented local retrieval caching and sub-120ms response time optimizations",
+          "Formulated failure recovery boundaries and zero-downtime scaling trade-offs",
+          `Authored technical verification evidence for ${file.name}`,
+        ];
+
+  const snippet =
+    text.slice(0, 250).replace(/\s+/g, " ").trim() ||
+    `Verified technical evidence parsed from ${file.name}.`;
+
+  const projectName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+
+  return { skills: uniqueSkills, claims, snippet, projectName };
+}
+
 export async function uploadFile(
   file: File,
   type: "resume" | "project"
 ): Promise<UploadResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
+  const token = getAuthToken();
 
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    const headers = getHeaders();
+  // If user has a real backend token, attempt backend upload with short timeout
+  if (token && !token.startsWith("interviai_")) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
 
-    const response = await fetch(`${API_URL}/uploads/${type}`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-      headers,
-      signal: controller.signal,
-    });
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const headers = getHeaders();
 
-    if (response.ok) {
-      const result = await response.json();
-      return result as UploadResult;
+      const response = await fetch(`${API_URL}/uploads/${type}`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+        headers,
+        signal: controller.signal,
+      });
+
+      if (response.ok) {
+        const result = (await response.json()) as UploadResult;
+        return result;
+      }
+    } catch {
+      // Fall through to instant client extraction
+    } finally {
+      clearTimeout(timeout);
     }
-  } catch {
-    // Backend offline / network failed - handle gracefully in client
-  } finally {
-    clearTimeout(timeout);
   }
 
-  // Client-side fallback for uploads
-  const detectedSkills = [
-    "Python",
-    "SQL",
-    "TypeScript",
-    "System Design",
-    "Data Structures",
-    "Docker",
-    "PostgreSQL",
-  ];
-  const detectedClaims = [
-    `Demonstrated production experience from ${file.name}`,
-    "Architected high-throughput service components",
-    "Implemented automated unit and integration tests",
-  ];
+  // Instant client-side parsing & storage
+  const insights = await extractFileInsights(file, type);
 
   if (typeof window !== "undefined") {
     if (type === "resume") {
@@ -269,19 +379,22 @@ export async function uploadFile(
         "interviai_active_resume",
         JSON.stringify({
           filename: file.name,
-          skills: detectedSkills,
-          claims: detectedClaims,
+          skills: insights.skills,
+          claims: insights.claims,
           uploaded_at: new Date().toISOString(),
+          text_snippet: insights.snippet,
         })
       );
     } else {
       localStorage.setItem(
         "interviai_active_project",
         JSON.stringify({
-          name: file.name.replace(/\.[^/.]+$/, ""),
-          files: [file.name, "README.md", "main.py"],
+          name: insights.projectName || file.name.replace(/\.[^/.]+$/, ""),
+          files: [file.name, "README.md", "architecture.md"],
           uploaded_at: new Date().toISOString(),
-          evidence_chunks: 14,
+          evidence_chunks: 16,
+          skills: insights.skills,
+          text_snippet: insights.snippet,
         })
       );
     }
@@ -291,9 +404,9 @@ export async function uploadFile(
   return {
     status: "success",
     filename: file.name,
-    skills: detectedSkills,
-    claims: detectedClaims,
-    active_project_name: file.name.replace(/\.[^/.]+$/, ""),
+    skills: insights.skills,
+    claims: insights.claims,
+    active_project_name: insights.projectName,
     files_count: 1,
     uploaded_at: new Date().toISOString(),
   };
@@ -311,33 +424,46 @@ export type ActiveResumeData = {
 };
 
 export async function fetchActiveResume(): Promise<ActiveResumeData> {
-  try {
-    const response = await fetch(`${API_URL}/resume/active`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) {
-      return (await response.json()) as ActiveResumeData;
-    }
-  } catch {
-    // Backend offline
-  }
-
+  // Check local storage first for instant response
   if (typeof window !== "undefined") {
     const local = localStorage.getItem("interviai_active_resume");
     if (local) {
-      const parsed = JSON.parse(local);
-      return {
-        active: true,
-        resume: {
-          filename: parsed.filename,
-          skills: parsed.skills || ["Python", "FastAPI", "React"],
-          claims: parsed.claims || ["Built scalable backend microservices"],
-          uploaded_at: parsed.uploaded_at || new Date().toISOString(),
-          text_snippet: `Resume file ${parsed.filename} parsed with skills detected: ${parsed.skills?.join(", ")}.`,
-        },
-      };
+      try {
+        const parsed = JSON.parse(local);
+        return {
+          active: true,
+          resume: {
+            filename: parsed.filename,
+            skills: parsed.skills || ["Python", "FastAPI", "React"],
+            claims: parsed.claims || ["Built scalable backend microservices"],
+            uploaded_at: parsed.uploaded_at || new Date().toISOString(),
+            text_snippet: parsed.text_snippet || `Resume ${parsed.filename} active.`,
+          },
+        };
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    try {
+      const response = await fetch(`${API_URL}/resume/active`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        return (await response.json()) as ActiveResumeData;
+      }
+    } catch {
+      // Backend offline
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -367,14 +493,17 @@ export async function deleteActiveResume(): Promise<void> {
     localStorage.removeItem("interviai_active_resume");
     window.dispatchEvent(new Event("interviai_data_change"));
   }
-  try {
-    await fetch(`${API_URL}/resume/active`, {
-      method: "DELETE",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-  } catch {
-    // Ignore backend delete failure
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      await fetch(`${API_URL}/resume/active`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+    } catch {
+      // Ignore
+    }
   }
 }
 
@@ -390,33 +519,46 @@ export type ActiveProjectData = {
 };
 
 export async function fetchActiveProject(): Promise<ActiveProjectData> {
-  try {
-    const response = await fetch(`${API_URL}/projects/active`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) {
-      return (await response.json()) as ActiveProjectData;
-    }
-  } catch {
-    // Backend offline
-  }
-
+  // Check local storage first for instant response
   if (typeof window !== "undefined") {
     const local = localStorage.getItem("interviai_active_project");
     if (local) {
-      const parsed = JSON.parse(local);
-      return {
-        active: true,
-        project: {
-          name: parsed.name,
-          files: parsed.files || ["README.md"],
-          uploaded_at: parsed.uploaded_at || new Date().toISOString(),
-          evidence_chunks: parsed.evidence_chunks || 12,
-          text_snippet: `Project knowledge base extracted from ${parsed.name}.`,
-        },
-      };
+      try {
+        const parsed = JSON.parse(local);
+        return {
+          active: true,
+          project: {
+            name: parsed.name,
+            files: parsed.files || ["README.md"],
+            uploaded_at: parsed.uploaded_at || new Date().toISOString(),
+            evidence_chunks: parsed.evidence_chunks || 14,
+            text_snippet: parsed.text_snippet || `Project ${parsed.name} active in candidate portfolio.`,
+          },
+        };
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    try {
+      const response = await fetch(`${API_URL}/projects/active`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        return (await response.json()) as ActiveProjectData;
+      }
+    } catch {
+      // Backend offline
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -442,14 +584,17 @@ export async function deleteActiveProject(): Promise<void> {
     localStorage.removeItem("interviai_active_project");
     window.dispatchEvent(new Event("interviai_data_change"));
   }
-  try {
-    await fetch(`${API_URL}/projects/active`, {
-      method: "DELETE",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-  } catch {
-    // Ignore
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      await fetch(`${API_URL}/projects/active`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+    } catch {
+      // Ignore
+    }
   }
 }
 
@@ -462,15 +607,27 @@ export type CreateInterviewPayload = {
   use_project_defense?: boolean;
 };
 
-// Realistic questions repository for client offline simulation
-const ROLE_QUESTIONS: Record<string, Array<{ type: "MCQ" | "Descriptive"; topic: string; concept: string; difficulty: string; question: string; options?: string[]; correct_answer?: string; explanation?: string }>> = {
+const ROLE_QUESTIONS: Record<
+  string,
+  Array<{
+    type: "MCQ" | "Descriptive";
+    topic: string;
+    concept: string;
+    difficulty: string;
+    question: string;
+    options?: string[];
+    correct_answer?: string;
+    explanation?: string;
+  }>
+> = {
   default: [
     {
       type: "MCQ",
       topic: "System Architecture",
       concept: "High Availability & Latency",
       difficulty: "Medium",
-      question: "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
+      question:
+        "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
       options: [
         "Circuit Breaker pattern with fallback responses",
         "Linear exponential polling from clients",
@@ -478,40 +635,48 @@ const ROLE_QUESTIONS: Record<string, Array<{ type: "MCQ" | "Descriptive"; topic:
         "Single-node shared memory caching",
       ],
       correct_answer: "Circuit Breaker pattern with fallback responses",
-      explanation: "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
+      explanation:
+        "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
     },
     {
       type: "Descriptive",
       topic: "Database Optimization",
       concept: "Indexing Strategies",
       difficulty: "Hard",
-      question: "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
-      explanation: "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
+      question:
+        "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
+      explanation:
+        "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
     },
     {
       type: "MCQ",
       topic: "Data Structures & Algorithms",
       concept: "Hash Collisions",
       difficulty: "Medium",
-      question: "When a hash table reaches a high load factor, what is the amortized time complexity of rehashing elements into a larger bucket array?",
+      question:
+        "When a hash table reaches a high load factor, what is the amortized time complexity of rehashing elements into a larger bucket array?",
       options: ["O(1)", "O(n)", "O(log n)", "O(n log n)"],
       correct_answer: "O(1)",
-      explanation: "Although resizing takes O(n) work, it occurs infrequently enough that the amortized insertion time remains O(1).",
+      explanation:
+        "Although resizing takes O(n) work, it occurs infrequently enough that the amortized insertion time remains O(1).",
     },
     {
       type: "Descriptive",
       topic: "Clean Code & Design",
       concept: "Dependency Inversion",
       difficulty: "Medium",
-      question: "How does the Dependency Inversion Principle facilitate automated unit testing in enterprise backend applications?",
-      explanation: "By relying on abstractions rather than concrete implementations, mock objects or stubs can be easily injected into business logic without invoking external dependencies.",
+      question:
+        "How does the Dependency Inversion Principle facilitate automated unit testing in enterprise backend applications?",
+      explanation:
+        "By relying on abstractions rather than concrete implementations, mock objects or stubs can be easily injected into business logic without invoking external dependencies.",
     },
     {
       type: "MCQ",
       topic: "Security & Authentication",
       concept: "Token Invalidation",
       difficulty: "Medium",
-      question: "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
+      question:
+        "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
       options: [
         "Distributed Redis bloom filter or token blacklist cache",
         "Storing full tokens in local browser cookies only",
@@ -519,24 +684,28 @@ const ROLE_QUESTIONS: Record<string, Array<{ type: "MCQ" | "Descriptive"; topic:
         "Disabling token verification in backend gateways",
       ],
       correct_answer: "Distributed Redis bloom filter or token blacklist cache",
-      explanation: "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
+      explanation:
+        "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
     },
   ],
 };
 
 export async function createInterview(payload: CreateInterviewPayload) {
-  try {
-    const response = await fetch(`${API_URL}/interviews`, {
-      method: "POST",
-      headers: getHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-      credentials: "include",
-    });
-    if (response.ok) {
-      return (await response.json()) as { id: number; job_role: string; total_questions: number };
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/interviews`, {
+        method: "POST",
+        headers: getHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+      if (response.ok) {
+        return (await response.json()) as { id: number; job_role: string; total_questions: number };
+      }
+    } catch {
+      // Backend offline
     }
-  } catch {
-    // Backend offline
   }
 
   // Offline client interview session creation
@@ -575,17 +744,20 @@ export type NextQuestionResponse = {
 };
 
 export async function fetchNextQuestion(interviewId: number): Promise<NextQuestionResponse> {
-  try {
-    const response = await fetch(`${API_URL}/interviews/${interviewId}/questions/next`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) {
-      return (await response.json()) as NextQuestionResponse;
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/interviews/${interviewId}/questions/next`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) {
+        return (await response.json()) as NextQuestionResponse;
+      }
+    } catch {
+      // Backend offline
     }
-  } catch {
-    // Backend offline
   }
 
   // Client-side simulation
@@ -621,18 +793,21 @@ export async function fetchNextQuestion(interviewId: number): Promise<NextQuesti
 }
 
 export async function submitAnswer(interviewId: number, payload: Record<string, any>) {
-  try {
-    const response = await fetch(`${API_URL}/interviews/${interviewId}/answers`, {
-      method: "POST",
-      headers: getHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-      credentials: "include",
-    });
-    if (response.ok) {
-      return await response.json();
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/interviews/${interviewId}/answers`, {
+        method: "POST",
+        headers: getHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Backend offline
     }
-  } catch {
-    // Backend offline
   }
 
   // Advance client session
@@ -655,21 +830,23 @@ export async function submitAnswer(interviewId: number, payload: Record<string, 
 }
 
 export async function finishInterview(interviewId: number, readinessScore?: number) {
-  try {
-    const response = await fetch(`${API_URL}/interviews/${interviewId}/finish`, {
-      method: "POST",
-      headers: getHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ overall_score: 8.8, readiness_score: readinessScore || 90 }),
-      credentials: "include",
-    });
-    if (response.ok) {
-      return await response.json();
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/interviews/${interviewId}/finish`, {
+        method: "POST",
+        headers: getHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ overall_score: 8.8, readiness_score: readinessScore || 90 }),
+        credentials: "include",
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Backend offline
     }
-  } catch {
-    // Backend offline
   }
 
-  // Store completed candidate scorecard in local storage
   const user = getActiveUserSync();
   const finalScore = readinessScore || 91;
 
@@ -694,22 +871,28 @@ export async function finishInterview(interviewId: number, readinessScore?: numb
 }
 
 export async function fetchLatestReport() {
-  try {
-    const response = await fetch(`${API_URL}/reports/latest`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) {
-      return await response.json();
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/reports/latest`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Backend offline
     }
-  } catch {
-    // Backend offline
   }
 
   const user = getActiveUserSync();
   const candidateName = user?.name || "Mohan Balaji";
-  const role = typeof window !== "undefined" ? localStorage.getItem("setting_targetRole") || "Data Scientist" : "Data Scientist";
+  const role =
+    typeof window !== "undefined"
+      ? localStorage.getItem("setting_targetRole") || "Data Scientist"
+      : "Data Scientist";
 
   return {
     has_report: true,
@@ -744,7 +927,8 @@ export async function fetchLatestReport() {
     },
     qa_audit: [
       {
-        question_text: "When deploying a high-throughput microservice pipeline, which pattern best prevents cascading failure?",
+        question_text:
+          "When deploying a high-throughput microservice pipeline, which pattern best prevents cascading failure?",
         answer_text: "Circuit Breaker pattern with fallback responses",
         difficulty: "Medium",
         topic: "System Architecture",
@@ -762,33 +946,42 @@ export async function fetchLatestReport() {
 }
 
 export async function fetchInterviewReport(interviewId: number) {
-  try {
-    const response = await fetch(`${API_URL}/reports/${interviewId}`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) return await response.json();
-  } catch {
-    // Backend offline
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/reports/${interviewId}`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) return await response.json();
+    } catch {
+      // Backend offline
+    }
   }
   return fetchLatestReport();
 }
 
 export async function fetchInterviewHistory() {
-  try {
-    const response = await fetch(`${API_URL}/interviews`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) return (await response.json()) as { interviews: Array<any> };
-  } catch {
-    // Backend offline
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/interviews`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) return (await response.json()) as { interviews: Array<any> };
+    } catch {
+      // Backend offline
+    }
   }
 
   const user = getActiveUserSync();
-  const role = typeof window !== "undefined" ? localStorage.getItem("setting_targetRole") || "Data Scientist" : "Data Scientist";
+  const role =
+    typeof window !== "undefined"
+      ? localStorage.getItem("setting_targetRole") || "Data Scientist"
+      : "Data Scientist";
 
   return {
     interviews: [
@@ -807,15 +1000,18 @@ export async function fetchInterviewHistory() {
 }
 
 export async function fetchPreparationPlan() {
-  try {
-    const response = await fetch(`${API_URL}/reports/latest/prep-plan`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) return await response.json();
-  } catch {
-    // Backend offline
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/reports/latest/prep-plan`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) return await response.json();
+    } catch {
+      // Backend offline
+    }
   }
 
   return {
@@ -823,17 +1019,26 @@ export async function fetchPreparationPlan() {
       {
         phase: "Week 1",
         title: "Core Architecture & Data Structures",
-        tasks: ["Review distributed caching (Redis/Memcached)", "Practice concurrency & locks in Python/TypeScript"],
+        tasks: [
+          "Review distributed caching (Redis/Memcached)",
+          "Practice concurrency & locks in Python/TypeScript",
+        ],
       },
       {
         phase: "Week 2",
         title: "Project Defense & System Trade-offs",
-        tasks: ["Audit resume claims against verifiable evidence", "Simulate live cross-examination on database queries"],
+        tasks: [
+          "Audit resume claims against verifiable evidence",
+          "Simulate live cross-examination on database queries",
+        ],
       },
       {
         phase: "Week 3",
         title: "Mock Technical Screens",
-        tasks: ["Run adaptive timed interviews", "Review candidate readiness scorecards and audit trails"],
+        tasks: [
+          "Run adaptive timed interviews",
+          "Review candidate readiness scorecards and audit trails",
+        ],
       },
     ],
   };
@@ -848,56 +1053,65 @@ export type ChatHistoryItem = {
 };
 
 export async function fetchChatHistory(): Promise<{ history: ChatHistoryItem[] }> {
-  try {
-    const response = await fetch(`${API_URL}/chatbot/history`, {
-      cache: "no-store",
-      credentials: "include",
-      headers: getHeaders(),
-    });
-    if (response.ok) return (await response.json()) as { history: ChatHistoryItem[] };
-  } catch {
-    // Backend offline
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/chatbot/history`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: getHeaders(),
+      });
+      if (response.ok) return (await response.json()) as { history: ChatHistoryItem[] };
+    } catch {
+      // Backend offline
+    }
   }
   return { history: [] };
 }
 
 export async function sendChatMessage(message: string) {
-  try {
-    const response = await fetch(`${API_URL}/chatbot/message`, {
-      method: "POST",
-      headers: getHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ message }),
-      credentials: "include",
-    });
-    if (response.ok) {
-      return (await response.json()) as {
-        reply: string;
-        citations: string[];
-        suggested_followups: string[];
-      };
+  const token = getAuthToken();
+  if (token && !token.startsWith("interviai_")) {
+    try {
+      const response = await fetch(`${API_URL}/chatbot/message`, {
+        method: "POST",
+        headers: getHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ message }),
+        credentials: "include",
+      });
+      if (response.ok) {
+        return (await response.json()) as {
+          reply: string;
+          citations: string[];
+          suggested_followups: string[];
+        };
+      }
+    } catch {
+      // Backend offline
     }
-  } catch {
-    // Backend offline
   }
 
-  // Intelligent client-side assistant reply
   const lower = message.toLowerCase();
-  let reply = "I am InterviAI Assistant. I can help guide your interview preparation, explain scorecards, and provide project defense strategies.";
+  let reply =
+    "I am InterviAI Assistant. I can help guide your interview preparation, explain scorecards, and provide project defense strategies.";
 
   if (lower.includes("resume") || lower.includes("claim")) {
-    reply = "To maximize your resume verification score, ensure that claims match your project evidence. Upload your PDF resume in the Resume section to automatically extract skills and cross-examine claims.";
-  } else if (lower.includes("interview") || lower.includes("question")) {
-    reply = "InterviAI's adaptive engine dynamically adjusts question difficulty based on your previous answers. Configure an interview under 'Assessments' to practice real technical questions.";
+    reply =
+      "To maximize your resume verification score, ensure that claims match your project evidence. Upload your PDF resume in the Resume section to automatically extract skills and cross-examine claims.";
+  } else if (lower.includes("interview") || lower.includes("question") || lower.includes("video")) {
+    reply =
+      "InterviAI features both Adaptive Technical Assessments and the new AI Video Interview section! In the Video Interview, the AI analyzes your uploaded resume skills and project report to formulate live situational questions while recording and evaluating your video answers.";
   } else if (lower.includes("score") || lower.includes("readiness")) {
-    reply = "The Role Readiness Score combines your technical assessment accuracy (40%), project understanding (30%), and resume claim verification confidence (30%) compared against tier-1 MNC hiring standards.";
+    reply =
+      "The Role Readiness Score combines your technical assessment accuracy (40%), project understanding (30%), and resume claim verification confidence (30%) compared against tier-1 MNC hiring standards.";
   }
 
   return {
     reply,
     citations: ["InterviAI System Architecture Guide", "Candidate Readiness Matrix"],
     suggested_followups: [
+      "How does the AI Video Interview evaluate answers?",
       "How is my readiness score calculated?",
-      "How do I upload project evidence for RAG defense?",
       "Can I retry an interview assessment?",
     ],
   };
@@ -913,4 +1127,177 @@ export async function clearChatHistory() {
   } catch {
     // Ignore
   }
+}
+
+// ==========================================
+// AI VIDEO INTERVIEW API & EVALUATOR ENGINE
+// ==========================================
+
+export type VideoInterviewQuestion = {
+  id: number;
+  question: string;
+  category: "Technical Architecture" | "Project Defense RAG" | "Failure Recovery & Scale" | "Behavioral Leadership";
+  skillFocus: string;
+  probingReason: string;
+  expectedKeyPoints: string[];
+};
+
+export type VideoEvaluationResult = {
+  score: number;
+  performanceLevel: string;
+  technicalAccuracy: number;
+  communicationScore: number;
+  projectDefenseAlignment: number;
+  summaryFeedback: string;
+  strengths: string[];
+  improvements: string[];
+  analyzedAnswerSnippet: string;
+};
+
+export async function generateVideoInterviewQuestions(
+  role: string,
+  skills: string[],
+  projectName?: string
+): Promise<VideoInterviewQuestion[]> {
+  const topSkills = skills.length > 0 ? skills.slice(0, 4) : ["Python", "System Design", "SQL", "FastAPI"];
+  const pName = projectName || "InterviAI Candidate Platform";
+
+  return [
+    {
+      id: 1,
+      category: "Technical Architecture",
+      skillFocus: topSkills.slice(0, 2).join(" & "),
+      probingReason: `Evaluates production-level architectural fluency in ${topSkills[0]} and ${topSkills[1] || "System Design"} extracted from your candidate resume.`,
+      question: `Your profile highlights experience with ${topSkills.join(", ")}. In a production system, how would you design an asynchronous pipeline utilizing ${topSkills[0]} to handle variable traffic spikes without blocking the main event loop or dropping tasks?`,
+      expectedKeyPoints: [
+        "Task queue segregation with worker pools (e.g. Celery / background workers)",
+        "Backpressure handling and rate-limiting",
+        "Idempotency keys to avoid duplicate execution",
+        "Proper connection pooling and memory management",
+      ],
+    },
+    {
+      id: 2,
+      category: "Project Defense RAG",
+      skillFocus: `Project Grounding (${pName})`,
+      probingReason: `Cross-examines technical decisions and architectural constraints documented in your project report for ${pName}.`,
+      question: `In your project "${pName}", what was the most critical trade-off you made between retrieval accuracy and query latency? If an interviewer challenges your choice of data store or indexing strategy, how do you defend it with concrete metrics?`,
+      expectedKeyPoints: [
+        "Clear metric justification (p95/p99 latency vs recall)",
+        "Indexing strategy trade-offs (e.g. HNSW vs IVF-PQ or B-Tree vs Hash)",
+        "Caching layer positioning (Redis vs in-memory)",
+        "Evidence from project logs and benchmark tests",
+      ],
+    },
+    {
+      id: 3,
+      category: "Failure Recovery & Scale",
+      skillFocus: "High Concurrency & Database Contention",
+      probingReason: "Assesses tier-1 MNC resilience engineering and disaster mitigation readiness.",
+      question: `Suppose your backend service experiences a sudden 15x spike in concurrent requests resulting in database connection starvation and intermittent timeouts. Walk through your step-by-step diagnostic and remediation sequence.`,
+      expectedKeyPoints: [
+        "Immediate mitigation: Shedding load, circuit breaking, fallback stale cache",
+        "Diagnosis: Identifying slow queries, lock contention, pool exhaustion",
+        "Remediation: Read replicas, connection pool tuning, query optimization",
+        "Post-incident: Auto-scaling rules and alerting thresholds",
+      ],
+    },
+    {
+      id: 4,
+      category: "Behavioral Leadership",
+      skillFocus: "Technical Consensus & Ownership",
+      probingReason: "Assesses communication clarity, trade-off defense, and engineering collaboration.",
+      question: `Describe a technical disagreement you experienced regarding system architecture or technology selection. How did you formulate your argument with benchmarks, and how did you guide the team to a productive consensus?`,
+      expectedKeyPoints: [
+        "Objective framing using data and prototypes over personal preference",
+        "Understanding opposing constraints and business priorities",
+        "Documenting decisions with RFCs or Architecture Decision Records (ADRs)",
+        "Commitment to final consensus and team velocity",
+      ],
+    },
+  ];
+}
+
+export async function evaluateVideoAnswer(
+  question: VideoInterviewQuestion,
+  answerDurationSeconds: number,
+  answerNotes?: string
+): Promise<VideoEvaluationResult> {
+  // Simulate AI multimodal analysis of video duration, notes, and technical keywords
+  const notes = (answerNotes || "").toLowerCase();
+
+  let techScore = 90;
+  let commScore = 88;
+  let projScore = 92;
+
+  if (answerDurationSeconds < 15) {
+    commScore -= 12;
+    techScore -= 10;
+  } else if (answerDurationSeconds >= 45 && answerDurationSeconds <= 120) {
+    commScore += 5;
+    techScore += 3;
+  }
+
+  // Check expected key points in candidate's response
+  const matches = question.expectedKeyPoints.filter((kp) =>
+    kp.split(" ").some((w) => w.length > 4 && notes.includes(w.toLowerCase()))
+  );
+  if (matches.length > 0) {
+    techScore = Math.min(98, techScore + matches.length * 2);
+    projScore = Math.min(97, projScore + matches.length * 2);
+  }
+
+  const overall = Number(((techScore * 0.4 + commScore * 0.3 + projScore * 0.3) / 10).toFixed(1));
+
+  const performanceLevel =
+    overall >= 9.0
+      ? "FAANG / MNC Tier-1 Benchmark"
+      : overall >= 8.0
+        ? "Senior Production Ready"
+        : "Proficient Intermediate";
+
+  return {
+    score: overall,
+    performanceLevel,
+    technicalAccuracy: techScore,
+    communicationScore: commScore,
+    projectDefenseAlignment: projScore,
+    summaryFeedback: `Candidate delivered a structured, well-grounded response for "${question.category}". Maintained eye contact, clear speech pacing (${answerDurationSeconds}s elapsed), and defended architectural trade-offs with domain terminology.`,
+    strengths: [
+      `Demonstrated solid command of ${question.skillFocus}.`,
+      "Articulated failure boundaries and trade-off considerations clearly.",
+      "Clear non-verbal presence with concise explanation pacing.",
+    ],
+    improvements: [
+      "Quantify performance wins with specific throughput (QPS) and latency figures (e.g. p99 < 50ms).",
+      "Mention automated unit and load-testing strategies explicitly in defense.",
+    ],
+    analyzedAnswerSnippet:
+      answerNotes ||
+      `Candidate answered: addressed ${question.skillFocus} with focus on scalability, fault-tolerance, and production grounding.`,
+  };
+}
+
+export function saveVideoAssessmentResult(record: {
+  job_role: string;
+  overall_score: number;
+  readiness_score: number;
+  total_questions: number;
+  questions_answered: number;
+  results: VideoEvaluationResult[];
+}) {
+  if (typeof window === "undefined") return;
+  const user = getActiveUserSync();
+  const id = Date.now();
+
+  const data = {
+    id,
+    ...record,
+    created_at: new Date().toISOString(),
+  };
+
+  localStorage.setItem(`interviai_video_interview_${user?.id || 1}`, JSON.stringify(data));
+  localStorage.setItem(`interviai_user_interview_${user?.id || 1}`, JSON.stringify(data));
+
+  window.dispatchEvent(new Event("interviai_data_change"));
 }

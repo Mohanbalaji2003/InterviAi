@@ -16,6 +16,7 @@ import {
   User,
   UserCheck,
   UserPlus,
+  Video,
   X,
   Zap,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const routeTitles: Record<string, string> = {
   "/": "Dashboard",
   "/interview": "Interview setup",
   "/interview/session": "Live interview",
+  "/video-interview": "AI Video Assessment & Defense",
   "/projects": "Project workspace",
   "/resume": "Resume analysis",
   "/reports": "Candidate intelligence report",
@@ -102,6 +104,7 @@ export function Topbar({
   };
 
   const searchResults = [
+    { title: "AI Video Interview & Defense", url: "/video-interview", tag: "Video" },
     { title: "Adaptive Technical Assessment", url: "/interview", tag: "Interview" },
     { title: "Candidate Resume Analysis & Claims", url: "/resume", tag: "Resume" },
     { title: "Project Defense RAG Knowledge Base", url: "/projects", tag: "Project" },
@@ -216,6 +219,15 @@ export function Topbar({
                   >
                     <LayoutDashboard size={15} className="text-violet-400" />
                     <span>Dashboard Overview</span>
+                  </Link>
+
+                  <Link
+                    href="/video-interview"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-slate-300 hover:bg-violet-500/10 hover:text-white transition"
+                  >
+                    <Video size={15} className="text-violet-400" />
+                    <span>AI Video Assessment</span>
                   </Link>
 
                   <Link
