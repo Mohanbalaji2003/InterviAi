@@ -824,22 +824,30 @@ def submit_answer(
         )
     else:
         try:
+            # Extract domain keywords from concept, topic, and explanation
+            extracted_kw = set()
+            for text_src in [payload.concept, payload.topic, payload.explanation, payload.question_text]:
+                if text_src:
+                    for token in re.findall(r"[a-zA-Z]{3,}", text_src.lower()):
+                        if token not in {"the", "and", "for", "with", "that", "this", "from", "when", "what", "which", "how", "why"}:
+                            extracted_kw.add(token)
+
             evaluation = evaluate_descriptive_answer_fast(
                 question_data={
                     "type": payload.question_type,
                     "topic": payload.topic or "Technical Knowledge",
                     "concept": payload.concept or "General",
                     "question": payload.question_text,
-                    "keywords": ["design", "performance", "architecture", "scalability", "implementation"],
+                    "keywords": list(extracted_kw) or ["architecture", "performance", "trade-off"],
                 },
                 candidate_answer=payload.answer_text,
             )
         except Exception:
             evaluation = {
-                "overall_score": 7.0,
-                "feedback": "Answer submitted successfully.",
-                "missing_concepts": [],
-                "strengths": ["Demonstrated technical communication"],
+                "overall_score": 1.0,
+                "feedback": "Answer failed validation.",
+                "missing_concepts": [payload.concept or "Core concepts"],
+                "strengths": [],
             }
 
     score = float(evaluation.get("overall_score", 7.0))

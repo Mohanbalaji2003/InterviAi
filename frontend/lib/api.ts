@@ -126,18 +126,18 @@ export async function fetchDashboardData(): Promise<DashboardData> {
             job_role: interviewData.job_role,
             total_questions: interviewData.total_questions || 5,
             status: "completed",
-            overall_score: interviewData.overall_score || 8.8,
-            readiness_score: interviewData.readiness_score || 91,
+            overall_score: typeof interviewData.overall_score === "number" ? interviewData.overall_score : 1.0,
+            readiness_score: typeof interviewData.readiness_score === "number" ? interviewData.readiness_score : 10,
             created_at: interviewData.created_at || new Date().toISOString(),
-            project_understanding: 92,
-            questions_answered: interviewData.total_questions || 5,
+            project_understanding: typeof interviewData.readiness_score === "number" ? Math.max(5, Math.round(interviewData.readiness_score * 0.98)) : 10,
+            questions_answered: interviewData.questions_answered || interviewData.total_questions || 5,
           },
           claim_summary: {
             total: 4,
-            supported: 4,
-            partially_supported: 0,
-            unverified: 0,
-            verification_confidence: 92,
+            supported: typeof interviewData.readiness_score === "number" && interviewData.readiness_score < 50 ? 0 : 4,
+            partially_supported: typeof interviewData.readiness_score === "number" && interviewData.readiness_score < 50 ? 1 : 0,
+            unverified: typeof interviewData.readiness_score === "number" && interviewData.readiness_score < 50 ? 3 : 0,
+            verification_confidence: typeof interviewData.readiness_score === "number" ? (interviewData.readiness_score < 50 ? 15 : 92) : 15,
           },
           active_resume: {
             has_resume: Boolean(localResume),
@@ -1050,6 +1050,7 @@ export async function createInterview(payload: CreateInterviewPayload) {
   if (typeof window !== "undefined") {
     localStorage.setItem(`interviai_session_${id}`, JSON.stringify(sessionData));
     sessionStorage.setItem("current_interview_id", String(id));
+    localStorage.removeItem("interviai_sample_report_active");
   }
 
   return { id, job_role: payload.job_role, total_questions: payload.total_questions || 5 };
@@ -1120,51 +1121,257 @@ export async function fetchNextQuestion(interviewId: number): Promise<NextQuesti
   };
 }
 
+export type AnswerEvaluation = {
+  score: number; // 0.0 to 10.0
+  verdict: string;
+  is_correct: boolean;
+  feedback: string;
+  strengths: string[];
+  gaps: string[];
+};
+
+export function evaluateAnswerLocally(payload: Record<string, any>): AnswerEvaluation {
+  const isMcq = payload.question_type === "MCQ" || Boolean(payload.options && payload.options.length > 0);
+  const rawAnswer = (payload.answer_text || "").trim();
+
+  // 1. MCQ EVALUATION
+  if (isMcq && payload.correct_answer) {
+    const isCorrect = rawAnswer.toLowerCase() === payload.correct_answer.toLowerCase();
+    if (isCorrect) {
+      return {
+        score: 10.0,
+        verdict: "Correct (10/10)",
+        is_correct: true,
+        feedback: `Correct. Selected the optimal industry standard pattern. ${payload.explanation || ""}`,
+        strengths: ["Selected the optimal pattern", `Demonstrated mastery in ${payload.concept || payload.topic || "Core Architecture"}`],
+        gaps: [],
+      };
+    } else {
+      return {
+        score: 0.0,
+        verdict: "Incorrect (0/10)",
+        is_correct: false,
+        feedback: `Incorrect. Selected "${rawAnswer || "No option"}". The correct answer is "${payload.correct_answer}". ${payload.explanation || ""}`,
+        strengths: [],
+        gaps: [`Failed question on ${payload.concept || payload.topic || "fundamental pattern"}`],
+      };
+    }
+  }
+
+  // 2. DESCRIPTIVE EVALUATION
+  const normalizedText = rawAnswer.toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
+  const words = normalizedText.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+
+  // Check for silly / gibberish / low-effort submissions
+  const sillyTokens = new Set([
+    "idk", "dont", "know", "no", "idea", "nothing", "skip", "whatever",
+    "random", "silly", "banana", "apple", "potato", "asdf", "qwerty",
+    "aaaa", "test", "haha", "lol", "lmao", "foo", "bar", "xyz", "none",
+    "bla", "blah", "who", "cares", "ok", "yes", "no"
+  ]);
+
+  const hasCharSpam = /(.)\1{4,}/.test(normalizedText);
+  const uniqueChars = new Set(normalizedText.replace(/\s/g, "")).size;
+  const isCharMash = normalizedText.length > 10 && uniqueChars < 5;
+
+  let sillyCount = 0;
+  for (const w of words) {
+    if (sillyTokens.has(w)) sillyCount++;
+  }
+  const isSilly = wordCount < 6 || (wordCount > 0 && sillyCount / wordCount >= 0.5) || hasCharSpam || isCharMash;
+
+  if (isSilly) {
+    return {
+      score: 0.5,
+      verdict: "Unsatisfactory / Low Effort (0.5/10)",
+      is_correct: false,
+      feedback: "Unsatisfactory. The response is excessively brief, incoherent, or contains non-technical placeholder text.",
+      strengths: [],
+      gaps: ["No technical explanation provided", "Incoherent or low-effort submission"],
+    };
+  }
+
+  // Extract reference keywords from question, explanation, topic, and concept
+  const referenceText = `${payload.concept || ""} ${payload.topic || ""} ${payload.explanation || ""} ${payload.question_text || ""}`.toLowerCase();
+  const rawKeywords = referenceText.match(/[a-z]{3,}/g) || [];
+  const stopWords = new Set(["the", "and", "for", "with", "that", "this", "from", "when", "what", "which", "how", "why", "are", "have", "been", "will", "would", "should", "could", "explain", "describe", "between", "when", "where", "into", "their", "than", "more", "most", "about", "also"]);
+  const domainKeywords = Array.from(new Set(rawKeywords.filter(k => !stopWords.has(k))));
+
+  const matchedKeywords = domainKeywords.filter(kw => normalizedText.includes(kw));
+  const missingKeywords = domainKeywords.filter(kw => !normalizedText.includes(kw)).slice(0, 3);
+  const matchRatio = domainKeywords.length > 0 ? matchedKeywords.length / Math.min(domainKeywords.length, 6) : 0;
+
+  if (matchedKeywords.length === 0) {
+    if (wordCount < 18) {
+      return {
+        score: 1.0,
+        verdict: "Unsatisfactory / Irrelevant (1.0/10)",
+        is_correct: false,
+        feedback: `Unsatisfactory. Did not address any of the essential technical principles for ${payload.topic || "this question"}. Missing key concepts: ${missingKeywords.join(", ") || "core mechanics"}.`,
+        strengths: [],
+        gaps: [`Failed to address ${payload.concept || payload.topic}`, "Zero relevant technical terms referenced"],
+      };
+    } else {
+      return {
+        score: 2.5,
+        verdict: "Off-Topic / Inaccurate (2.5/10)",
+        is_correct: false,
+        feedback: `Off-topic or inaccurate. Although text was submitted, the explanation failed to mention any foundational principles related to ${payload.concept || payload.topic}.`,
+        strengths: [],
+        gaps: ["Failed to identify core mechanisms", "Did not explain critical architectural trade-offs"],
+      };
+    }
+  }
+
+  // Partial or developing answer
+  if (matchedKeywords.length < 3) {
+    if (wordCount < 20) {
+      return {
+        score: 3.5,
+        verdict: "Superficial (3.5/10)",
+        is_correct: false,
+        feedback: `Superficial. Mentioned keywords (${matchedKeywords.join(", ")}), but lacked depth, architecture trade-offs, and practical production considerations.`,
+        strengths: [`Identified basic terms: ${matchedKeywords.join(", ")}`],
+        gaps: ["Lacks trade-off depth and concrete system metrics", `Review: ${missingKeywords.join(", ")}`],
+      };
+    } else {
+      return {
+        score: 5.5,
+        verdict: "Partially Competent (5.5/10)",
+        is_correct: true,
+        feedback: `Partially correct. Touched on ${matchedKeywords.join(", ")}, but missed deeper trade-off analysis or edge-case handling required for senior MNC roles.`,
+        strengths: [`Identified relevant concepts: ${matchedKeywords.join(", ")}`],
+        gaps: ["Needs deeper explanation of failure modes and trade-offs"],
+      };
+    }
+  }
+
+  // Strong answer (3+ keywords)
+  if (wordCount >= 35) {
+    const strongScore = Math.min(9.5, Math.round((7.5 + matchRatio * 2.0) * 10) / 10);
+    return {
+      score: strongScore,
+      verdict: `Strong Technical Answer (${strongScore}/10)`,
+      is_correct: true,
+      feedback: `Strong technical answer. Demonstrated solid architectural grasp of ${matchedKeywords.slice(0, 4).join(", ")} with clear reasoning.`,
+      strengths: [`Deep technical fluency with ${matchedKeywords.slice(0, 3).join(", ")}`, "Structured technical communication"],
+      gaps: missingKeywords.length > 0 ? [`Could elaborate on ${missingKeywords.join(", ")}`] : [],
+    };
+  } else {
+    return {
+      score: 6.5,
+      verdict: "Good but Brief (6.5/10)",
+      is_correct: true,
+      feedback: `Good conceptual direction. Accurate keywords (${matchedKeywords.join(", ")}), but could be elaborated with concrete metrics or architecture patterns.`,
+      strengths: [`Correct core principles: ${matchedKeywords.join(", ")}`],
+      gaps: ["Expand on production deployment patterns"],
+    };
+  }
+}
+
+function recordAnswerLocally(interviewId: number, answerData: Record<string, any>) {
+  if (typeof window === "undefined") return;
+  const raw = localStorage.getItem(`interviai_session_${interviewId}`);
+  if (raw) {
+    try {
+      const sess = JSON.parse(raw);
+      sess.current_index = (sess.current_index || 0) + 1;
+      sess.answers = sess.answers || [];
+      sess.answers.push(answerData);
+      localStorage.setItem(`interviai_session_${interviewId}`, JSON.stringify(sess));
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export async function submitAnswer(interviewId: number, payload: Record<string, any>) {
+  // Real evaluation
+  const evaluation = evaluateAnswerLocally(payload);
+  const evaluatedPayload = {
+    ...payload,
+    score: evaluation.score,
+    is_correct: evaluation.is_correct,
+    verdict: evaluation.verdict,
+    evaluation,
+  };
+
   const token = getAuthToken();
   if (token && !token.startsWith("interviai_")) {
     try {
       const response = await fetch(`${API_URL}/interviews/${interviewId}/answers`, {
         method: "POST",
         headers: getHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(payload),
+        body: JSON.stringify(evaluatedPayload),
         credentials: "include",
       });
       if (response.ok) {
-        return await response.json();
+        const data = await response.json();
+        recordAnswerLocally(interviewId, {
+          ...evaluatedPayload,
+          score: typeof data.score === "number" ? data.score : evaluation.score,
+          evaluation: data.evaluation || evaluation,
+        });
+        return data;
       }
     } catch {
       // Backend offline
     }
   }
 
-  // Advance client session and record answer
-  if (typeof window !== "undefined") {
-    const raw = localStorage.getItem(`interviai_session_${interviewId}`);
-    if (raw) {
-      const sess = JSON.parse(raw);
-      sess.current_index = (sess.current_index || 0) + 1;
-      sess.answers = sess.answers || [];
-      sess.answers.push(payload);
-      localStorage.setItem(`interviai_session_${interviewId}`, JSON.stringify(sess));
-    }
-  }
+  // Advance client session and record evaluated answer
+  recordAnswerLocally(interviewId, evaluatedPayload);
 
   return {
     status: "recorded",
-    score: 8.9,
-    feedback: "Comprehensive and grounded technical answer evaluated against MNC rubrics.",
+    score: evaluation.score,
+    feedback: evaluation.feedback,
+    verdict: evaluation.verdict,
   };
 }
 
 export async function finishInterview(interviewId: number, readinessScore?: number) {
+  let calculatedScore = readinessScore;
+  let calculatedOverall = 0;
+
+  let sess: any = null;
+  let answers: any[] = [];
+  if (typeof window !== "undefined") {
+    const raw = localStorage.getItem(`interviai_session_${interviewId}`);
+    if (raw) {
+      try {
+        sess = JSON.parse(raw);
+        answers = sess.answers || [];
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Calculate genuine score based on submitted answers
+  if (answers.length > 0) {
+    let sumScores = 0;
+    for (const a of answers) {
+      sumScores += typeof a.score === "number" ? a.score : (a.is_correct ? 10 : 0);
+    }
+    calculatedOverall = Math.round((sumScores / answers.length) * 10) / 10;
+    calculatedScore = Math.round(calculatedOverall * 10);
+  } else {
+    calculatedOverall = calculatedScore ? Math.round(calculatedScore / 10 * 10) / 10 : 1.0;
+    calculatedScore = calculatedScore || 10;
+  }
+
+  const finalScore = calculatedScore;
+  const overallFinal = calculatedOverall;
+
   const token = getAuthToken();
   if (token && !token.startsWith("interviai_")) {
     try {
       const response = await fetch(`${API_URL}/interviews/${interviewId}/finish`, {
         method: "POST",
         headers: getHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ overall_score: 8.8, readiness_score: readinessScore || 90 }),
+        body: JSON.stringify({ overall_score: overallFinal, readiness_score: finalScore }),
         credentials: "include",
       });
       if (response.ok) {
@@ -1176,21 +1383,16 @@ export async function finishInterview(interviewId: number, readinessScore?: numb
   }
 
   const user = getActiveUserSync();
-  const finalScore = readinessScore || 92;
-
   if (typeof window !== "undefined" && user) {
-    const raw = localStorage.getItem(`interviai_session_${interviewId}`);
-    const sess = raw ? JSON.parse(raw) : null;
     const jobRole = sess ? sess.job_role : "Software Engineer";
-    const answers = sess ? sess.answers || [] : [];
 
     const completedRecord = {
       id: interviewId,
       job_role: jobRole,
-      overall_score: 8.9,
+      overall_score: overallFinal,
       readiness_score: finalScore,
       total_questions: sess?.total_questions || (answers.length > 0 ? answers.length : 5),
-      questions_answered: answers.length > 0 ? answers.length : 5,
+      questions_answered: answers.length,
       created_at: new Date().toISOString(),
     };
 
@@ -1199,7 +1401,7 @@ export async function finishInterview(interviewId: number, readinessScore?: numb
     window.dispatchEvent(new Event("interviai_data_change"));
   }
 
-  return { status: "completed", overall_score: 8.9, readiness_score: finalScore };
+  return { status: "completed", overall_score: overallFinal, readiness_score: finalScore };
 }
 
 export async function fetchLatestReport() {
@@ -1257,24 +1459,103 @@ export async function fetchLatestReport() {
   }
 
   const effectiveRole = savedInterview?.job_role || defaultRole;
-  const effectiveScore = savedInterview?.readiness_score || 92;
-  const effectiveOverall = savedInterview?.overall_score || 8.9;
+  const effectiveScore = typeof savedInterview?.readiness_score === "number" ? savedInterview.readiness_score : 92;
+  const effectiveOverall = typeof savedInterview?.overall_score === "number" ? savedInterview.overall_score : 8.9;
+
+  let perfLevel = "FAANG / MNC Tier-1 Benchmark Level";
+  let strengthsList: string[] = [];
+  let riskSignals: string[] = [];
+  let focusList: string[] = [];
+
+  const correctAnswers = savedAudit.filter((a) => a.score >= 6 || a.is_correct);
+  const failedAnswers = savedAudit.filter((a) => a.score < 6 && !a.is_correct);
+
+  if (effectiveScore < 40) {
+    perfLevel = "Unsatisfactory / High Risk (Did Not Meet Bar)";
+    strengthsList = ["Session completed under test conditions."];
+    riskSignals = [
+      `CRITICAL: Candidate failed core technical verification checks (Score: ${effectiveScore}%).`,
+      "Incoherent, random, or low-effort answers detected across multiple questions.",
+      `Severe knowledge gaps in foundational ${effectiveRole} architectures.`,
+      "High risk of rejection in technical screening rounds.",
+    ];
+    focusList = [
+      `Study foundational algorithms and system architectures for ${effectiveRole} from basics.`,
+      "Practice formulating structured answers with concrete technical trade-offs.",
+      "Retake the assessment with complete, well-reasoned technical responses.",
+    ];
+  } else if (effectiveScore < 65) {
+    perfLevel = "Developing / Below Bar (Significant Gaps)";
+    strengthsList = [
+      `Familiar with some basic ${effectiveRole} terminology.`,
+      "Attempted multiple conceptual questions.",
+    ];
+    riskSignals = [
+      `Inconsistent accuracy: missed ${failedAnswers.length} of ${savedAudit.length || 5} core technical questions.`,
+      "Explanations lacked architectural depth and failure-mode analysis.",
+      "Answers remained superficial when pressed for implementation details.",
+    ];
+    focusList = [
+      "Review core trade-offs (latency vs throughput, memory compaction, distributed locks).",
+      "Practice explaining the inner workings of distributed systems and algorithms.",
+    ];
+  } else if (effectiveScore < 85) {
+    perfLevel = "Competent / Meets Standard Bar";
+    strengthsList = [
+      `Good grasp of ${effectiveRole} principles.`,
+      "Correctly answered majority of technical verification questions.",
+    ];
+    riskSignals = [
+      "Minor gaps in high-throughput distributed edge cases.",
+      "Could improve clarity on production disaster-recovery scenarios.",
+    ];
+    focusList = [
+      "Explore multi-region asynchronous database replication patterns.",
+      "Practice high-throughput live architecture diagram screens.",
+    ];
+  } else {
+    perfLevel = "FAANG / MNC Tier-1 Benchmark Level";
+    strengthsList = [
+      `Strong domain architectural grasp in ${effectiveRole} methodologies.`,
+      "Clear trade-off reasoning during adaptive questioning.",
+      "Grounded technical defense with zero hallucination flags.",
+    ];
+    riskSignals = [
+      "Consistent high performance across all verification checks.",
+    ];
+    focusList = [
+      "Explore multi-region asynchronous database replication patterns.",
+      "Practice high-throughput live architecture diagram screens.",
+    ];
+  }
+
+  // Component scores calculated directly from effectiveScore
+  const techKnowledge = Math.max(5, Math.min(99, Math.round(effectiveScore * 0.98)));
+  const appliedReasoning = Math.max(5, Math.min(99, Math.round(effectiveScore * 0.92)));
+  const projectUnderstanding = Math.max(5, Math.min(99, Math.round(effectiveScore * 1.02)));
+  const techCommunication = Math.max(5, Math.min(99, Math.round(effectiveScore * 0.95)));
+  const resumeEvidence = effectiveScore < 50 ? Math.max(10, Math.round(effectiveScore * 0.8)) : 93;
 
   // Build QA audit list from real user answers if available
   const qaAudit =
     savedAudit.length > 0
       ? savedAudit.map((a: any, i: number) => {
-          const isCorrect = a.options && a.correct_answer ? a.answer_text === a.correct_answer : true;
+          const score = typeof a.score === "number" ? a.score : a.is_correct ? 10 : 0;
+          const isCorrect = a.is_correct ?? (score >= 6);
+          const feedback =
+            a.evaluation?.feedback ||
+            (isCorrect
+              ? "Correct. Selected optimal industry standard pattern."
+              : "Incorrect or unsatisfactory answer.");
           return {
             question_text: a.question_text || `Technical Question ${i + 1}`,
-            answer_text: a.answer_text || "Submitted response",
+            answer_text: a.answer_text || "No response submitted",
             difficulty: a.difficulty || "Medium",
             topic: a.topic || "Core Technical Competency",
-            evaluation: a.options
-              ? isCorrect
-                ? "Correct. Selected optimal industry standard pattern."
-                : `Sub-optimal. Correct choice: ${a.correct_answer}`
-              : "Evaluated using STAR criteria. Strong architectural grounding with trade-off considerations.",
+            score,
+            is_correct: isCorrect,
+            verdict: a.verdict || a.evaluation?.verdict || (isCorrect ? `Correct (${score}/10)` : `Unsatisfactory (${score}/10)`),
+            evaluation: feedback,
           };
         })
       : [
@@ -1284,6 +1565,9 @@ export async function fetchLatestReport() {
             answer_text: "Circuit Breaker pattern with fallback responses",
             difficulty: "Medium",
             topic: "System Architecture",
+            score: 10,
+            is_correct: true,
+            verdict: "Correct (10/10)",
             evaluation: "Correct. Selected optimal fault-tolerance pattern.",
           },
           {
@@ -1291,6 +1575,9 @@ export async function fetchLatestReport() {
             answer_text: "Allows injection of mock dependencies without tight coupling to concrete databases.",
             difficulty: "Medium",
             topic: "Clean Architecture",
+            score: 9.0,
+            is_correct: true,
+            verdict: "Strong Technical Answer (9/10)",
             evaluation: "Clear explanation demonstrating practical experience.",
           },
         ];
@@ -1307,24 +1594,17 @@ export async function fetchLatestReport() {
     },
     report: {
       overall_readiness: effectiveScore,
-      performance_level: "FAANG / MNC Tier-1 Benchmark Level",
+      performance_level: perfLevel,
       components: {
-        "Technical Knowledge": Math.min(99, Math.round(effectiveScore * 0.98)),
-        "Applied Reasoning": Math.min(99, Math.round(effectiveScore * 0.95)),
-        "Project Understanding": Math.min(99, Math.round(effectiveScore * 1.02)),
-        "Technical Communication": Math.min(99, Math.round(effectiveScore * 0.97)),
-        "Resume Evidence Confidence": 94,
+        "Technical Knowledge": techKnowledge,
+        "Applied Reasoning": appliedReasoning,
+        "Project Understanding": projectUnderstanding,
+        "Technical Communication": techCommunication,
+        "Resume Evidence Confidence": resumeEvidence,
       },
-      strengths: [
-        `Strong domain architectural grasp in ${effectiveRole} methodologies.`,
-        "Clear trade-off reasoning during adaptive questioning.",
-        "Grounded technical defense with zero hallucination flags.",
-      ],
-      risk_signals: ["High consistency across resume claims and technical answers."],
-      recommended_focus: [
-        "Explore multi-region asynchronous database replication patterns.",
-        "Practice high-throughput live architecture diagram screens.",
-      ],
+      strengths: strengthsList,
+      risk_signals: riskSignals,
+      recommended_focus: focusList,
     },
     qa_audit: qaAudit,
   };

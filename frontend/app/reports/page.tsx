@@ -205,36 +205,43 @@ export default function ReportsPage() {
     );
   }
 
+  function getTier(score: number): string {
+    if (score >= 85) return "Exceeds Bar";
+    if (score >= 70) return "Meets Bar";
+    if (score >= 50) return "Below Bar";
+    return "Did Not Meet Bar";
+  }
+
   const rubricList = [
     {
       name: "Technical Knowledge",
-      score: parseInt(components["Technical Knowledge"]) || Math.round(overallScore * 0.95),
+      score: parseInt(components["Technical Knowledge"]) || Math.max(5, Math.round(overallScore * 0.95)),
       detail: "Algorithms, distributed system patterns, and API architecture",
-      tier: "Exceeds Bar",
+      tier: getTier(parseInt(components["Technical Knowledge"]) || Math.round(overallScore * 0.95)),
     },
     {
       name: "Applied Reasoning",
-      score: parseInt(components["Applied Reasoning"]) || Math.round(overallScore * 0.92),
+      score: parseInt(components["Applied Reasoning"]) || Math.max(5, Math.round(overallScore * 0.92)),
       detail: "Latency vs accuracy trade-offs, vector index selection, caching",
-      tier: "Strong Hire",
+      tier: getTier(parseInt(components["Applied Reasoning"]) || Math.round(overallScore * 0.92)),
     },
     {
       name: "Project Understanding",
-      score: parseInt(components["Project Understanding"]) || Math.round(overallScore * 0.98),
+      score: parseInt(components["Project Understanding"]) || Math.max(5, Math.round(overallScore * 0.98)),
       detail: "Grounding in candidate project code, RAG embeddings, schema design",
-      tier: "Top 2%",
+      tier: getTier(parseInt(components["Project Understanding"]) || Math.round(overallScore * 0.98)),
     },
     {
       name: "Technical Communication",
-      score: parseInt(components["Technical Communication"]) || Math.round(overallScore * 0.94),
+      score: parseInt(components["Technical Communication"]) || Math.max(5, Math.round(overallScore * 0.94)),
       detail: "Structured STAR delivery (Situation, Task, Action, Impact)",
-      tier: "Exceeds Bar",
+      tier: getTier(parseInt(components["Technical Communication"]) || Math.round(overallScore * 0.94)),
     },
     {
       name: "Resume Evidence Confidence",
-      score: parseInt(components["Resume Evidence Confidence"]) || 93,
-      detail: "Zero hallucination detected; claims backed by repository evidence",
-      tier: "Verified",
+      score: parseInt(components["Resume Evidence Confidence"]) || (overallScore < 50 ? 25 : 93),
+      detail: overallScore < 50 ? "Low confidence; multiple claims contradicted by assessment" : "Zero hallucination detected; claims backed by evidence",
+      tier: getTier(parseInt(components["Resume Evidence Confidence"]) || (overallScore < 50 ? 25 : 93)),
     },
   ];
 
@@ -591,14 +598,30 @@ export default function ReportsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div>
                 <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                  <TrendingUp size={16} className="text-emerald-400" /> Candidate Percentile Distribution Curve
+                  <TrendingUp size={16} className={overallScore >= 70 ? "text-emerald-400" : overallScore >= 50 ? "text-amber-400" : "text-rose-400"} /> Candidate Percentile Distribution Curve
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Benchmarked against 14,800+ technical candidates evaluated across Tier-1 tech standards.
                 </p>
               </div>
-              <span className="self-start sm:self-auto rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
-                Top 4.2% Percentile
+              <span className={`self-start sm:self-auto rounded-full border px-3 py-1 text-xs font-bold ${
+                overallScore >= 85
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+                  : overallScore >= 70
+                  ? "bg-violet-500/10 border-violet-500/20 text-violet-300"
+                  : overallScore >= 50
+                  ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                  : "bg-rose-500/10 border-rose-500/20 text-rose-300"
+              }`}>
+                {overallScore >= 85
+                  ? "Top 4.2% Percentile"
+                  : overallScore >= 70
+                  ? "Top 25% Percentile"
+                  : overallScore >= 50
+                  ? "50th Percentile (Median)"
+                  : overallScore >= 30
+                  ? "Bottom 25% Percentile"
+                  : "Bottom 5% Percentile (Critical Risk)"}
               </span>
             </div>
 
@@ -634,16 +657,23 @@ export default function ReportsPage() {
                   strokeWidth="3"
                 />
 
-                <line x1="430" y1="25" x2="430" y2="130" stroke="#10b981" strokeWidth="2" strokeDasharray="4 4" />
-                <circle cx="430" cy="100" r="7" fill="#10b981" />
-                <circle cx="430" cy="100" r="14" fill="#10b981" opacity="0.3" className="animate-ping" />
-
-                <g transform="translate(370, 8)">
-                  <rect width="115" height="26" rx="8" fill="#0d121c" stroke="#10b981" strokeWidth="1" />
-                  <text x="57" y="17" fill="#34d399" fontSize="10" fontWeight="bold" textAnchor="middle">
-                    You: {overallScore}% (Top 5%)
-                  </text>
-                </g>
+                {(() => {
+                  const markerX = Math.max(70, Math.min(460, 50 + (overallScore / 100) * 410));
+                  const markerColor = overallScore >= 70 ? "#10b981" : overallScore >= 50 ? "#f59e0b" : "#f43f5e";
+                  return (
+                    <>
+                      <line x1={markerX} y1="25" x2={markerX} y2="130" stroke={markerColor} strokeWidth="2" strokeDasharray="4 4" />
+                      <circle cx={markerX} cy="100" r="7" fill={markerColor} />
+                      <circle cx={markerX} cy="100" r="14" fill={markerColor} opacity="0.3" className="animate-ping" />
+                      <g transform={`translate(${Math.max(10, Math.min(380, markerX - 60))}, 8)`}>
+                        <rect width="120" height="26" rx="8" fill="#0d121c" stroke={markerColor} strokeWidth="1" />
+                        <text x="60" y="17" fill={markerColor} fontSize="10" fontWeight="bold" textAnchor="middle">
+                          You: {overallScore}%
+                        </text>
+                      </g>
+                    </>
+                  );
+                })()}
 
                 <text x="60" y="148" fill="#64748b" fontSize="10">20%</text>
                 <text x="160" y="148" fill="#64748b" fontSize="10">50%</text>
@@ -659,16 +689,30 @@ export default function ReportsPage() {
               <Card key={idx} className="p-5 space-y-3 hover:border-violet-400/30 transition">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm text-white">{item.name}</span>
-                  <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-2.5 py-0.5 text-xs font-bold text-violet-300">
+                  <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+                    item.score >= 85
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+                      : item.score >= 70
+                      ? "bg-violet-500/10 border-violet-500/20 text-violet-300"
+                      : item.score >= 50
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                      : "bg-rose-500/10 border-rose-500/20 text-rose-300"
+                  }`}>
                     {item.score}% • {item.tier}
                   </span>
                 </div>
 
                 <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-500 via-indigo-500 to-emerald-400 transition-all duration-1000 ease-out"
+                    className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                      item.score >= 70
+                        ? "bg-gradient-to-r from-violet-500 via-indigo-500 to-emerald-400"
+                        : item.score >= 50
+                        ? "bg-gradient-to-r from-amber-500 to-amber-400"
+                        : "bg-gradient-to-r from-rose-600 to-rose-400"
+                    }`}
                     style={{
-                      width: barsAnimated ? `${item.score}%` : "0%",
+                      width: barsAnimated ? `${Math.max(5, item.score)}%` : "0%",
                       transitionDelay: `${idx * 150}ms`,
                     }}
                   />
@@ -693,30 +737,64 @@ export default function ReportsPage() {
 
           {qaAudit.length > 0 ? (
             <div className="space-y-4">
-              {qaAudit.map((qa: any, index: number) => (
-                <div key={index} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-violet-300">
-                      Question {qa.question_number || index + 1} ({qa.difficulty || "Medium"})
-                    </span>
-                    <span className="text-slate-400 font-mono">{qa.topic || "Core Technical"}</span>
-                  </div>
-
-                  <p className="text-sm font-medium text-slate-100">{qa.question_text}</p>
-
-                  <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 text-xs text-slate-300 font-mono">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Candidate Answer:</p>
-                    {qa.answer_text || "No response submitted"}
-                  </div>
-
-                  {qa.evaluation && (
-                    <div className="text-xs text-emerald-300 flex items-center gap-2 pt-1 border-t border-white/5">
-                      <CheckCircle2 size={13} />
-                      <span>{typeof qa.evaluation === 'string' ? qa.evaluation : qa.evaluation.feedback || "Evaluated against FAANG rubrics."}</span>
+              {qaAudit.map((qa: any, index: number) => {
+                const score = typeof qa.score === 'number' ? qa.score : (qa.is_correct ? 10 : 0);
+                const isPass = qa.is_correct ?? (score >= 6);
+                const isDeveloping = score >= 3.5 && score < 6;
+                return (
+                  <div key={index} className={`rounded-2xl border p-4 space-y-3 ${
+                    isPass
+                      ? "border-emerald-500/20 bg-emerald-500/5"
+                      : isDeveloping
+                      ? "border-amber-500/20 bg-amber-500/5"
+                      : "border-rose-500/20 bg-rose-500/5"
+                  }`}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-violet-300">
+                        Question {qa.question_number || index + 1} ({qa.difficulty || "Medium"})
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 font-mono hidden sm:inline">{qa.topic || "Core Technical"}</span>
+                        {isPass ? (
+                          <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+                            Score: {score}/10 • Pass
+                          </span>
+                        ) : isDeveloping ? (
+                          <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
+                            Score: {score}/10 • Developing
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-rose-500/20 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-bold text-rose-300">
+                            Score: {score}/10 • Unsatisfactory
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    <p className="text-sm font-medium text-slate-100">{qa.question_text}</p>
+
+                    <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 text-xs text-slate-300 font-mono">
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Candidate Answer:</p>
+                      <span className={isPass ? "text-slate-200" : isDeveloping ? "text-amber-200" : "text-rose-200"}>
+                        {qa.answer_text || "No response submitted"}
+                      </span>
+                    </div>
+
+                    {qa.evaluation && (
+                      <div className={`text-xs flex items-start gap-2 pt-2 border-t border-white/5 ${
+                        isPass ? "text-emerald-300" : isDeveloping ? "text-amber-300" : "text-rose-300"
+                      }`}>
+                        {isPass ? (
+                          <CheckCircle2 size={14} className="shrink-0 mt-0.5 text-emerald-400" />
+                        ) : (
+                          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-rose-400" />
+                        )}
+                        <span>{typeof qa.evaluation === 'string' ? qa.evaluation : qa.evaluation.feedback || "Evaluated against FAANG rubrics."}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-6 text-center text-sm text-slate-400 space-y-2">
@@ -741,33 +819,79 @@ export default function ReportsPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 space-y-3">
+            <div className={`rounded-2xl border p-5 space-y-3 ${
+              overallScore >= 85
+                ? "border-emerald-500/20 bg-emerald-500/10"
+                : overallScore >= 70
+                ? "border-violet-500/20 bg-violet-500/10"
+                : overallScore >= 50
+                ? "border-amber-500/20 bg-amber-500/10"
+                : "border-rose-500/20 bg-rose-500/10"
+            }`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider font-semibold text-emerald-300">
+                <span className="text-xs uppercase tracking-wider font-semibold text-slate-300">
                   Hiring Recommendation
                 </span>
-                <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-200 border border-emerald-500/30">
-                  STRONG HIRE
+                <span className={`rounded-full px-3 py-1 text-xs font-bold border ${
+                  overallScore >= 85
+                    ? "bg-emerald-500/20 text-emerald-200 border-emerald-500/30"
+                    : overallScore >= 70
+                    ? "bg-violet-500/20 text-violet-200 border-violet-500/30"
+                    : overallScore >= 50
+                    ? "bg-amber-500/20 text-amber-200 border-amber-500/30"
+                    : "bg-rose-500/20 text-rose-200 border-rose-500/30"
+                }`}>
+                  {overallScore >= 85
+                    ? "STRONG HIRE"
+                    : overallScore >= 70
+                    ? "LEAN HIRE / MEETS BAR"
+                    : overallScore >= 50
+                    ? "LEAN NO HIRE / NEEDS RE-EVALUATION"
+                    : "NO HIRE / REJECT"}
                 </span>
               </div>
               <p className="text-sm text-slate-200 leading-relaxed">
-                Candidate exceeds technical expectations for {interview?.job_role || "Target Role"}. Highly
-                recommended for onsite architectural defense loops.
+                {overallScore >= 85
+                  ? `Candidate exceeds technical expectations for ${interview?.job_role || "Target Role"}. Highly recommended for onsite architectural defense loops.`
+                  : overallScore >= 70
+                  ? `Candidate meets the standard technical baseline for ${interview?.job_role || "Target Role"}. Recommended for focused onsite technical review.`
+                  : overallScore >= 50
+                  ? `Candidate exhibited multiple gaps in core technical domains for ${interview?.job_role || "Target Role"}. Needs substantial preparation before onsite interview rounds.`
+                  : `Candidate demonstrated severe deficiencies across core competencies for ${interview?.job_role || "Target Role"}. Answers lacked technical substance, were inaccurate, or showed low effort. Not recommended for advancement.`}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 p-5 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider font-semibold text-violet-300">
+                <span className="text-xs uppercase tracking-wider font-semibold text-slate-300">
                   Target Level Placement
                 </span>
-                <span className="rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-200 border border-violet-500/30">
-                  L5 / Senior IC
+                <span className={`rounded-full px-3 py-1 text-xs font-bold border ${
+                  overallScore >= 85
+                    ? "bg-violet-500/20 text-violet-200 border-violet-500/30"
+                    : overallScore >= 70
+                    ? "bg-indigo-500/20 text-indigo-200 border-indigo-500/30"
+                    : overallScore >= 50
+                    ? "bg-amber-500/20 text-amber-200 border-amber-500/30"
+                    : "bg-rose-500/20 text-rose-200 border-rose-500/30"
+                }`}>
+                  {overallScore >= 85
+                    ? "L5 / Senior IC"
+                    : overallScore >= 70
+                    ? "L4 / Mid-Level IC"
+                    : overallScore >= 50
+                    ? "L3 / Junior IC (Needs Guidance)"
+                    : "Did Not Meet Entry Level Bar"}
                 </span>
               </div>
               <p className="text-sm text-slate-200 leading-relaxed">
-                Demonstrates senior-level technical autonomy, clear architectural trade-off reasoning, and grounded
-                project defense.
+                {overallScore >= 85
+                  ? "Demonstrates senior-level technical autonomy, clear architectural trade-off reasoning, and grounded project defense."
+                  : overallScore >= 70
+                  ? "Competent execution on standard technical tasks with minor supervision needed on large-scale distributed architectures."
+                  : overallScore >= 50
+                  ? "Candidate requires significant technical mentoring on core domain fundamentals and implementation trade-offs."
+                  : "Performance indicates lack of familiarity with basic concepts. Significant upskilling required before entry-level placement."}
               </p>
             </div>
           </div>
