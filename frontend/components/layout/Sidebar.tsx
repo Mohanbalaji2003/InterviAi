@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, BriefcaseBusiness, FileText, Gauge, LayoutGrid, LogOut, MessageSquareText, Settings } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, FileText, Gauge, LayoutGrid, LogOut, MessageSquareText, Settings, Video } from "lucide-react";
 
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutGrid },
   { href: "/interview", label: "Interviews", icon: MessageSquareText },
+  { href: "/video-interview", label: "AI Video Mock", icon: Video, badge: "Live" },
   { href: "/projects", label: "Projects", icon: BriefcaseBusiness },
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
@@ -36,22 +37,31 @@ export function Sidebar({
       </div>
 
       <nav className="mt-10 space-y-1.5">
-        {items.map(({ href, label, icon: Icon }) => {
+        {items.map((item) => {
+          const { href, label, icon: Icon } = item;
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const badge = "badge" in item ? (item as any).badge : null;
 
           return (
             <Link
               key={href}
               href={href}
               onClick={onClose}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+              className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition ${
                 active
                   ? "bg-violet-500/10 text-violet-200 ring-1 ring-violet-500/30"
                   : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-100"
               }`}
             >
-              <Icon size={16} className={active ? "text-violet-300" : "text-slate-500"} />
-              {label}
+              <div className="flex items-center gap-3">
+                <Icon size={16} className={active ? "text-violet-300" : "text-slate-500"} />
+                <span>{label}</span>
+              </div>
+              {badge ? (
+                <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase text-violet-300 border border-violet-400/30">
+                  {badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

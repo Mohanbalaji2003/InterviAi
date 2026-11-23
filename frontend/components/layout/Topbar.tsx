@@ -30,6 +30,7 @@ const routeTitles: Record<string, string> = {
   "/": "Dashboard",
   "/interview": "Interview setup",
   "/interview/session": "Live interview",
+  "/video-interview": "AI Video Interview & Defense",
   "/projects": "Project workspace",
   "/resume": "Resume analysis",
   "/reports": "Candidate intelligence report",
@@ -103,6 +104,7 @@ export function Topbar({
 
   const searchResults = [
     { title: "Adaptive Technical Assessment", url: "/interview", tag: "Interview" },
+    { title: "AI Video Mock Interview & Defense", url: "/video-interview", tag: "Video" },
     { title: "Candidate Resume Analysis & Claims", url: "/resume", tag: "Resume" },
     { title: "Project Defense RAG Knowledge Base", url: "/projects", tag: "Project" },
     { title: "MNC Recruiter Intelligence Scorecard", url: "/reports", tag: "Report" },

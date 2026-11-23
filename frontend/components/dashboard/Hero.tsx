@@ -21,12 +21,20 @@ export function Hero({
         <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">{headline}</h2>
         <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">{subheadline}</p>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/interview">
-            <Button type="button" size="lg">Start New Assessment</Button>
+            <Button type="button" size="lg" className="shadow-lg shadow-violet-950/40">
+              Start Adaptive Assessment
+            </Button>
+          </Link>
+          <Link href="/video-interview">
+            <Button type="button" size="lg" variant="secondary" className="border-violet-500/30 hover:border-violet-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse mr-1" />
+              AI Video Mock Interview
+            </Button>
           </Link>
           <Link href="/reports">
-            <Button type="button" size="lg" variant="secondary">View Reports</Button>
+            <Button type="button" size="lg" variant="secondary">View Scorecard</Button>
           </Link>
         </div>
       </div>

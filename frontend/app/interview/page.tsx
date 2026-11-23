@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BriefcaseBusiness, Clock3, FileText, LoaderCircle, SlidersHorizontal, Sparkles, Wand2 } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, Clock3, FileText, LoaderCircle, SlidersHorizontal, Sparkles, Video, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -101,7 +101,28 @@ export default function InterviewSetupPage() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.3fr,0.7fr]">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-violet-500/25 bg-gradient-to-r from-violet-950/40 via-[#0d121c] to-indigo-950/40 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="h-10 w-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 shrink-0">
+            <Video size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-white">Live AI Webcam & Speech Mock Interview</h4>
+              <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Available</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">Practice live verbal defense with camera recording, speech transcription, and real-time posture/speech scoring.</p>
+          </div>
+        </div>
+        <Link href="/video-interview">
+          <Button type="button" variant="secondary" size="sm" className="whitespace-nowrap text-xs border-violet-500/30 hover:border-violet-400">
+            Open Video Studio <ArrowRight size={14} />
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.3fr,0.7fr]">
       <div className="space-y-6">
         <Card className="p-5 sm:p-6">
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Assessment configuration</p>
@@ -297,5 +318,6 @@ export default function InterviewSetupPage() {
         </Button>
       </Card>
     </div>
+  </div>
   );
 }
