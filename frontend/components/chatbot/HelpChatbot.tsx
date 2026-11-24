@@ -272,7 +272,7 @@ export function HelpChatbot() {
         <div
           role="dialog"
           aria-label="InterviAI Assistant Chatbot"
-          className="fixed bottom-6 right-6 z-50 flex h-[620px] w-[95vw] sm:w-[440px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0a0f18]/95 shadow-2xl shadow-black/80 backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
+          className="fixed bottom-3 right-3 left-3 sm:left-auto sm:bottom-6 sm:right-6 z-50 flex h-[85vh] sm:h-[620px] w-auto sm:w-[440px] max-w-full flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0a0f18]/95 shadow-2xl shadow-black/80 backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 bg-gradient-to-r from-violet-950/60 via-slate-900/80 to-slate-950/90 px-4 py-3.5">

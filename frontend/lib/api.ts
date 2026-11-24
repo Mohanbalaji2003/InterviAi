@@ -611,7 +611,7 @@ const ROLE_QUESTIONS: Record<
     type: "MCQ" | "Descriptive";
     topic: string;
     concept: string;
-    difficulty: string;
+    difficulty: "Easy" | "Medium" | "Hard";
     question: string;
     options?: string[];
     correct_answer?: string;
@@ -622,10 +622,24 @@ const ROLE_QUESTIONS: Record<
     {
       type: "MCQ",
       topic: "System Architecture",
-      concept: "High Availability & Latency",
+      concept: "Fault Tolerance",
+      difficulty: "Easy",
+      question: "Which component is commonly used to decouple background asynchronous jobs from high-traffic API servers?",
+      options: [
+        "Distributed message queue (e.g. RabbitMQ, Kafka, SQS)",
+        "Synchronous HTTP redirect loop",
+        "Single in-memory JavaScript global array",
+        "Direct blocking socket write",
+      ],
+      correct_answer: "Distributed message queue (e.g. RabbitMQ, Kafka, SQS)",
+      explanation: "Message queues decouple producers from consumers, buffer request spikes, and prevent cascading thread pool exhaustion.",
+    },
+    {
+      type: "MCQ",
+      topic: "High Availability & Latency",
+      concept: "Circuit Breaker Pattern",
       difficulty: "Medium",
-      question:
-        "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
+      question: "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
       options: [
         "Circuit Breaker pattern with fallback responses",
         "Linear exponential polling from clients",
@@ -633,244 +647,68 @@ const ROLE_QUESTIONS: Record<
         "Single-node shared memory caching",
       ],
       correct_answer: "Circuit Breaker pattern with fallback responses",
-      explanation:
-        "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
+      explanation: "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
     },
     {
       type: "Descriptive",
-      topic: "Database Optimization",
-      concept: "Indexing Strategies",
-      difficulty: "Hard",
-      question:
-        "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
-      explanation:
-        "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
+      topic: "Clean Architecture",
+      concept: "Dependency Inversion",
+      difficulty: "Medium",
+      question: "How does the Dependency Inversion Principle facilitate automated unit testing in enterprise backend applications?",
+      explanation: "By relying on abstractions rather than concrete implementations, mock objects or stubs can be easily injected into business logic without invoking external dependencies.",
     },
     {
       type: "MCQ",
-      topic: "Data Structures & Algorithms",
-      concept: "Hash Collisions",
+      topic: "Database Optimization",
+      concept: "B-Tree vs Hash Index",
       difficulty: "Medium",
-      question:
-        "When a hash table reaches a high load factor, what is the amortized time complexity of rehashing elements into a larger bucket array?",
-      options: ["O(1)", "O(n)", "O(log n)", "O(n log n)"],
-      correct_answer: "O(1)",
-      explanation:
-        "Although resizing takes O(n) work, it occurs infrequently enough that the amortized insertion time remains O(1).",
+      question: "Why do relational databases (PostgreSQL, MySQL) default to B-Tree indexes over Hash indexes for primary keys?",
+      options: [
+        "B-Trees efficiently support range scans (BETWEEN, <, >) and ordered queries in O(log N) time",
+        "Hash indexes require 10x more disk space on every insert",
+        "B-Trees cannot suffer from hash collisions under any circumstances",
+        "Hash indexes only function on integer columns",
+      ],
+      correct_answer: "B-Trees efficiently support range scans (BETWEEN, <, >) and ordered queries in O(log N) time",
+      explanation: "B-Tree maintains sorted order, enabling logarithmic point lookups and range scans. Hash indexes only support O(1) equality lookups.",
     },
     {
       type: "Descriptive",
-      topic: "Clean Code & Design",
-      concept: "Dependency Inversion",
+      topic: "API Architecture",
+      concept: "Idempotent Webhooks",
       difficulty: "Medium",
-      question:
-        "How does the Dependency Inversion Principle facilitate automated unit testing in enterprise backend applications?",
-      explanation:
-        "By relying on abstractions rather than concrete implementations, mock objects or stubs can be easily injected into business logic without invoking external dependencies.",
+      question: "Explain how you design an idempotent payment processing webhook endpoint that guarantees at-most-once financial transaction execution despite at-least-once message delivery.",
+      explanation: "Use a unique idempotency key with distributed locks (e.g. Redis SETNX) and atomic database transactions to record transaction states and return cached responses on duplicate deliveries.",
     },
     {
       type: "MCQ",
       topic: "Security & Authentication",
       concept: "Token Invalidation",
-      difficulty: "Medium",
-      question:
-        "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
+      difficulty: "Hard",
+      question: "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
       options: [
-        "Distributed Redis bloom filter or token blacklist cache",
+        "Distributed Redis bloom filter or token blacklist cache with short TTL",
         "Storing full tokens in local browser cookies only",
         "Modifying JWT secret key globally on each logout",
         "Disabling token verification in backend gateways",
       ],
-      correct_answer: "Distributed Redis bloom filter or token blacklist cache",
-      explanation:
-        "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
-    },
-  ],
-  "Data Scientist": [
-    {
-      type: "MCQ",
-      topic: "Machine Learning Foundations",
-      concept: "L1 vs L2 Regularization",
-      difficulty: "Medium",
-      question:
-        "In regularized linear or logistic regression, what is the primary structural difference between L1 (Lasso) and L2 (Ridge) penalties?",
-      options: [
-        "L1 produces sparse models by driving coefficients exactly to zero; L2 shrinks coefficients asymptotically without zeroing them",
-        "L2 performs automatic feature selection while L1 only prevents overfitting",
-        "L1 can only be applied to decision trees, while L2 is reserved for neural networks",
-        "L2 regularization is mathematically undefined for convex loss functions",
-      ],
-      correct_answer:
-        "L1 produces sparse models by driving coefficients exactly to zero; L2 shrinks coefficients asymptotically without zeroing them",
-      explanation:
-        "L1 penalty has sharp corners on diamond-shaped constraint boundaries, leading to exact zero coefficients and automatic feature selection.",
+      correct_answer: "Distributed Redis bloom filter or token blacklist cache with short TTL",
+      explanation: "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
     },
     {
       type: "Descriptive",
-      topic: "Imbalanced Classification",
-      concept: "Class Imbalance & Evaluation",
+      topic: "Database Engines",
+      concept: "LSM vs B-Tree",
       difficulty: "Hard",
-      question:
-        "When modeling severe class imbalance (e.g. fraud detection with 0.05% positive rate), why is standard accuracy misleading, and how do you optimize Precision-Recall AUC vs ROC-AUC?",
-      explanation:
-        "Standard accuracy is dominated by true negatives. In rare-event detection, PR-AUC focuses on minority class recall and false positive rates without being diluted by the large negative class volume.",
-    },
-    {
-      type: "MCQ",
-      topic: "Tree-Based Ensembles",
-      concept: "Gradient Boosting Mechanics",
-      difficulty: "Medium",
-      question:
-        "How do subsequent decision trees improve predictive performance in algorithms like XGBoost and LightGBM?",
-      options: [
-        "Each subsequent tree is trained on the negative gradient (residuals) of the loss function computed from previous trees",
-        "Trees are grown independently in parallel and averaged using bootstrap aggregation",
-        "Subsequent trees randomly drop 50% of the training features to minimize variance",
-        "Trees prune prior trees recursively whenever cross-entropy increases",
-      ],
-      correct_answer:
-        "Each subsequent tree is trained on the negative gradient (residuals) of the loss function computed from previous trees",
-      explanation:
-        "Gradient boosting performs gradient descent in function space, fitting each new base learner to the pseudo-residuals of the current ensemble.",
-    },
-    {
-      type: "Descriptive",
-      topic: "Validation Strategy",
-      concept: "Time Series Leakage",
-      difficulty: "Hard",
-      question:
-        "Describe how you design a leak-free cross-validation split for financial market forecasting, addressing serial correlation and look-ahead bias.",
-      explanation:
-        "Use Purged Group TimeSeriesSplit or Walk-Forward validation with an embargo window to eliminate look-ahead leakage and autocorrelation overlap between train and test intervals.",
-    },
-    {
-      type: "MCQ",
-      topic: "Vector Mathematics",
-      concept: "Normalized Embeddings",
-      difficulty: "Medium",
-      question:
-        "When comparing high-dimensional embeddings that have been L2-normalized to unit length (||v|| = 1), what is the relationship between Cosine Similarity and Dot Product?",
-      options: [
-        "Cosine Similarity is mathematically identical to Dot Product",
-        "Dot Product is always half the Cosine Similarity",
-        "Cosine Similarity requires an additional Mahalanobis covariance inversion",
-        "Dot Product can only be computed if vectors share identical non-zero elements",
-      ],
-      correct_answer: "Cosine Similarity is mathematically identical to Dot Product",
-      explanation:
-        "Cosine similarity is dot(u, v) / (||u|| * ||v||). When vectors are L2-normalized, ||u|| = ||v|| = 1, making cosine similarity equal to dot(u, v).",
-    },
-  ],
-  "Machine Learning Engineer": [
-    {
-      type: "MCQ",
-      topic: "LLM Systems & Inference",
-      concept: "KV Cache Optimization",
-      difficulty: "Hard",
-      question:
-        "During autoregressive LLM inference (e.g. LLaMA, Mistral), what critical problem does PagedAttention and KV Cache management solve?",
-      options: [
-        "Eliminates redundant key-value projection recomputations while preventing GPU memory fragmentation through virtual paging",
-        "Quantizes all transformer attention heads into binary weights during generation",
-        "Bypasses causal masking to generate 10 tokens simultaneously",
-        "Replaces softmax with linear dot-product kernels at inference time",
-      ],
-      correct_answer:
-        "Eliminates redundant key-value projection recomputations while preventing GPU memory fragmentation through virtual paging",
-      explanation:
-        "PagedAttention manages KV cache memory in non-contiguous virtual pages, nearly eliminating internal/external memory fragmentation and enabling higher batch concurrency.",
-    },
-    {
-      type: "Descriptive",
-      topic: "RAG & Information Retrieval",
-      concept: "Hallucination Mitigation",
-      difficulty: "Medium",
-      question:
-        "In an enterprise RAG system, explain your pipeline strategy for query rewriting, cross-encoder re-ranking, and citation-grounded verification.",
-      explanation:
-        "Use reciprocal rank fusion or bi-encoder retrieval followed by cross-encoder re-ranking. Enforce strict citation metadata grounding and semantic guardrails to prevent ungrounded claims.",
-    },
-    {
-      type: "MCQ",
-      topic: "Model Adaptation",
-      concept: "LoRA Mechanics",
-      difficulty: "Medium",
-      question:
-        "In Low-Rank Adaptation (LoRA) for parameter-efficient fine-tuning (PEFT), how are the pre-trained weight matrices W_0 updated?",
-      options: [
-        "W_0 remains frozen, and low-rank matrices B and A (where ΔW = B * A) are trained with rank r << min(d, k)",
-        "W_0 weights are dynamically pruned by 90% using magnitude thresholding",
-        "Every alternating attention weight layer is deleted and replaced with a linear layer",
-        "W_0 is multiplied by an identity matrix with random Gaussian noise",
-      ],
-      correct_answer:
-        "W_0 remains frozen, and low-rank matrices B and A (where ΔW = B * A) are trained with rank r << min(d, k)",
-      explanation:
-        "LoRA freezes pre-trained model weights and injects trainable rank decomposition matrices into each layer of the Transformer architecture.",
-    },
-    {
-      type: "Descriptive",
-      topic: "Vector Search",
-      concept: "HNSW vs IVF-PQ",
-      difficulty: "Hard",
-      question:
-        "Contrast HNSW (Hierarchical Navigable Small World) and IVF-PQ (Inverted File with Product Quantization) regarding query latency, RAM consumption, and recall accuracy.",
-      explanation:
-        "HNSW delivers ultra-low search latency and higher recall via multi-layer proximity graphs but requires substantial RAM. IVF-PQ drastically reduces memory through vector quantization at the cost of lower recall and clustering overhead.",
-    },
-    {
-      type: "MCQ",
-      topic: "Distributed Training",
-      concept: "Model Parallelism",
-      difficulty: "Hard",
-      question:
-        "Which distributed training technique splits individual linear layers and weight matrices across multiple GPUs when a single layer exceeds GPU VRAM?",
-      options: [
-        "Tensor Parallelism (Megatron-LM)",
-        "Standard Data Parallelism (DDP)",
-        "Gradient Accumulation with local mini-batches",
-        "Simple CPU Parameter Server polling",
-      ],
-      correct_answer: "Tensor Parallelism (Megatron-LM)",
-      explanation:
-        "Tensor Parallelism splits matrix multiplications across GPUs along rows or columns with all-reduce communication operations.",
-    },
-  ],
-  "Software Engineer": [
-    {
-      type: "MCQ",
-      topic: "Distributed Systems",
-      concept: "Fault Tolerance",
-      difficulty: "Medium",
-      question:
-        "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
-      options: [
-        "Circuit Breaker pattern with fallback responses",
-        "Linear exponential polling from clients",
-        "Direct synchronous RPC calls with unbounded retries",
-        "Single-node shared memory caching",
-      ],
-      correct_answer: "Circuit Breaker pattern with fallback responses",
-      explanation:
-        "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
-    },
-    {
-      type: "Descriptive",
-      topic: "API Architecture",
-      concept: "Idempotency",
-      difficulty: "Medium",
-      question:
-        "Explain how you design an idempotent payment processing webhook endpoint that guarantees at-most-once financial transaction execution despite at-least-once message delivery.",
-      explanation:
-        "Use a unique idempotency key with distributed locks (e.g. Redis SETNX) and atomic database transactions to record transaction states and return cached responses on duplicate deliveries.",
+      question: "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
+      explanation: "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
     },
     {
       type: "MCQ",
       topic: "Consensus Protocols",
       concept: "Raft Quorum",
       difficulty: "Hard",
-      question:
-        "In the Raft consensus algorithm, under what condition is a log entry considered committed by the leader?",
+      question: "In the Raft consensus algorithm, under what condition is a log entry considered committed by the leader?",
       options: [
         "Once it is replicated on a majority of cluster nodes (quorum)",
         "Immediately when received by the leader before sending RPCs",
@@ -878,45 +716,412 @@ const ROLE_QUESTIONS: Record<
         "After a fixed 5-second client heartbeat timeout expires",
       ],
       correct_answer: "Once it is replicated on a majority of cluster nodes (quorum)",
-      explanation:
-        "A Raft leader commits an entry as soon as it has been successfully replicated on a majority of cluster members.",
+      explanation: "A Raft leader commits an entry as soon as it has been successfully replicated on a majority of cluster members.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Distributed Systems",
+      concept: "Saga Pattern vs 2PC",
+      difficulty: "Hard",
+      question: "When orchestrating distributed transactions across multi-service business workflows, contrast Two-Phase Commit (2PC) with the Saga Pattern (choreography/orchestration).",
+      explanation: "2PC provides strict ACID guarantees via blocking locks across coordinators, making it prone to single-point-of-failure bottlenecks. Saga decomposes transactions into local steps with compensating actions, achieving eventual consistency without blocking locks.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Scalability & System Design",
+      concept: "High Throughput Caching",
+      difficulty: "Hard",
+      question: "Design a multi-tier cache invalidation strategy for an application serving 100,000 QPS with 99.9% read ratio, preventing cache stampedes (thundering herd).",
+      explanation: "Combine probabilistic early expiration (XFetch algorithm) with distributed mutex locks on cache misses. Use read-through caching with stale-while-revalidate and asynchronous background refresh workers.",
+    },
+  ],
+  "Data Scientist": [
+    {
+      type: "MCQ",
+      topic: "Statistical Learning",
+      concept: "Bias-Variance Tradeoff",
+      difficulty: "Easy",
+      question: "As model complexity increases, how do training error and generalization error typically behave?",
+      options: [
+        "Training error monotonically decreases; test error forms a U-shaped curve as variance increases",
+        "Both training and test error decrease toward zero linearly",
+        "Training error increases due to high bias while test error decreases",
+        "Model complexity has no mathematical relationship with generalization error",
+      ],
+      correct_answer: "Training error monotonically decreases; test error forms a U-shaped curve as variance increases",
+      explanation: "Increasing complexity reduces bias on training data but eventually inflates model variance, causing overfitting and degraded test performance.",
+    },
+    {
+      type: "MCQ",
+      topic: "Regularization Mechanics",
+      concept: "L1 vs L2 Penalties",
+      difficulty: "Medium",
+      question: "In regularized linear or logistic regression, what is the primary structural difference between L1 (Lasso) and L2 (Ridge) penalties?",
+      options: [
+        "L1 produces sparse models by driving coefficients exactly to zero; L2 shrinks coefficients asymptotically without zeroing them",
+        "L2 performs automatic feature selection while L1 only prevents overfitting",
+        "L1 can only be applied to decision trees, while L2 is reserved for neural networks",
+        "L2 regularization is mathematically undefined for convex loss functions",
+      ],
+      correct_answer: "L1 produces sparse models by driving coefficients exactly to zero; L2 shrinks coefficients asymptotically without zeroing them",
+      explanation: "L1 penalty has sharp corners on diamond-shaped constraint boundaries, leading to exact zero coefficients and automatic feature selection.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Feature Engineering",
+      concept: "Data Leakage Prevention",
+      difficulty: "Medium",
+      question: "Describe your rigorous methodology for preventing target leakage and feature leakage during data preprocessing, scaling, and categorical encoding.",
+      explanation: "Fit all transformers, scalers, imputers, and target encoders strictly on training folds inside a cross-validation pipeline (e.g. scikit-learn Pipeline). Never compute global dataset statistics prior to splitting.",
+    },
+    {
+      type: "MCQ",
+      topic: "Tree-Based Ensembles",
+      concept: "Gradient Boosting Mechanics",
+      difficulty: "Medium",
+      question: "How do subsequent decision trees improve predictive performance in algorithms like XGBoost and LightGBM?",
+      options: [
+        "Each subsequent tree is trained on the negative gradient (residuals) of the loss function computed from previous trees",
+        "Trees are grown independently in parallel and averaged using bootstrap aggregation",
+        "Subsequent trees randomly drop 50% of the training features to minimize variance",
+        "Trees prune prior trees recursively whenever cross-entropy increases",
+      ],
+      correct_answer: "Each subsequent tree is trained on the negative gradient (residuals) of the loss function computed from previous trees",
+      explanation: "Gradient boosting performs gradient descent in function space, fitting each new base learner to the pseudo-residuals of the current ensemble.",
+    },
+    {
+      type: "MCQ",
+      topic: "Vector Mathematics",
+      concept: "Normalized Embeddings",
+      difficulty: "Medium",
+      question: "When comparing high-dimensional embeddings that have been L2-normalized to unit length (||v|| = 1), what is the relationship between Cosine Similarity and Dot Product?",
+      options: [
+        "Cosine Similarity is mathematically identical to Dot Product",
+        "Dot Product is always half the Cosine Similarity",
+        "Cosine Similarity requires an additional Mahalanobis covariance inversion",
+        "Dot Product can only be computed if vectors share identical non-zero elements",
+      ],
+      correct_answer: "Cosine Similarity is mathematically identical to Dot Product",
+      explanation: "Cosine similarity is dot(u, v) / (||u|| * ||v||). When vectors are L2-normalized, ||u|| = ||v|| = 1, making cosine similarity equal to dot(u, v).",
+    },
+    {
+      type: "Descriptive",
+      topic: "Imbalanced Classification",
+      concept: "PR-AUC vs ROC-AUC in Rare Events",
+      difficulty: "Hard",
+      question: "When modeling severe class imbalance (e.g. fraud detection with 0.05% positive rate), why is standard accuracy misleading, and how do you optimize Precision-Recall AUC vs ROC-AUC?",
+      explanation: "Standard accuracy is dominated by true negatives. In rare-event detection, PR-AUC focuses on minority class recall and false positive rates without being diluted by the large negative class volume.",
+    },
+    {
+      type: "MCQ",
+      topic: "Ensemble Theory",
+      concept: "Random Forest OOB Error",
+      difficulty: "Hard",
+      question: "In Random Forest algorithms, what is the Out-Of-Bag (OOB) error estimate, and how does it compare to k-fold cross-validation?",
+      options: [
+        "It evaluates trees on the ~36.8% of training samples left unselected during bootstrap sampling, serving as an unbiased validation error without extra CV splits",
+        "It measures error only on the outliers detected by isolation forest pruning",
+        "It is computed by predicting on artificial synthetic noise injected into the test split",
+        "It requires running 10-fold cross-validation sequentially on each tree node",
+      ],
+      correct_answer: "It evaluates trees on the ~36.8% of training samples left unselected during bootstrap sampling, serving as an unbiased validation error without extra CV splits",
+      explanation: "Because bootstrap sampling selects roughly 63.2% of distinct samples, the remaining ~36.8% unpicked samples form the out-of-bag set for validation.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Validation Strategy",
+      concept: "Time Series Purged Embargo",
+      difficulty: "Hard",
+      question: "Describe how you design a leak-free cross-validation split for financial market forecasting, addressing serial correlation and look-ahead bias.",
+      explanation: "Use Purged Group TimeSeriesSplit or Walk-Forward validation with an embargo window to eliminate look-ahead leakage and autocorrelation overlap between train and test intervals.",
+    },
+    {
+      type: "MCQ",
+      topic: "Deep Learning Foundations",
+      concept: "Cross-Entropy with Softmax",
+      difficulty: "Hard",
+      question: "What is the gradient of the categorical cross-entropy loss L with respect to logit z_i when using a Softmax activation?",
+      options: [
+        "p_i - y_i (predicted probability minus ground-truth indicator)",
+        "p_i * (1 - p_i)",
+        "log(p_i) / y_i",
+        "y_i * log(p_i) + (1 - y_i) * log(1 - p_i)",
+      ],
+      correct_answer: "p_i - y_i (predicted probability minus ground-truth indicator)",
+      explanation: "The derivative of categorical cross-entropy combined with softmax simplifies elegantly to (p_i - y_i), providing stable error signals.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Causal Inference",
+      concept: "Difference-in-Differences vs Matching",
+      difficulty: "Hard",
+      question: "When evaluating the causal impact of a new product feature without clean randomized control trials (A/B tests), compare Difference-in-Differences (DiD) with Propensity Score Matching (PSM).",
+      explanation: "DiD controls for unobserved time-invariant confounders by comparing pre/post treatment trends against a control group under the parallel trends assumption. PSM matches treated and control units on observed pre-treatment covariates to balance treatment assignment.",
+    },
+  ],
+  "Machine Learning Engineer": [
+    {
+      type: "MCQ",
+      topic: "Vector Search Fundamentals",
+      concept: "Distance Metrics",
+      difficulty: "Easy",
+      question: "For unit-normalized vectors, which metric is linearly related to Squared Euclidean distance?",
+      options: [
+        "Cosine Distance (1 - Cosine Similarity)",
+        "Mahalanobis Covariance Distance",
+        "Jaccard Token Distance",
+        "Hamming Bit Distance",
+      ],
+      correct_answer: "Cosine Distance (1 - Cosine Similarity)",
+      explanation: "For unit vectors ||u|| = ||v|| = 1, ||u - v||^2 = 2 - 2 * dot(u, v) = 2 * (1 - cos(u, v)).",
+    },
+    {
+      type: "MCQ",
+      topic: "Parameter-Efficient Tuning",
+      concept: "LoRA Mechanics",
+      difficulty: "Medium",
+      question: "In Low-Rank Adaptation (LoRA) for parameter-efficient fine-tuning (PEFT), how are the pre-trained weight matrices W_0 updated?",
+      options: [
+        "W_0 remains frozen, and low-rank matrices B and A (where ΔW = B * A) are trained with rank r << min(d, k)",
+        "W_0 weights are dynamically pruned by 90% using magnitude thresholding",
+        "Every alternating attention weight layer is deleted and replaced with a linear layer",
+        "W_0 is multiplied by an identity matrix with random Gaussian noise",
+      ],
+      correct_answer: "W_0 remains frozen, and low-rank matrices B and A (where ΔW = B * A) are trained with rank r << min(d, k)",
+      explanation: "LoRA freezes pre-trained model weights and injects trainable rank decomposition matrices into each layer of the Transformer architecture.",
+    },
+    {
+      type: "Descriptive",
+      topic: "RAG & Retrieval Architecture",
+      concept: "Hybrid Search & Re-ranking",
+      difficulty: "Medium",
+      question: "In an enterprise RAG system, explain your pipeline strategy for hybrid BM25 + dense vector retrieval, reciprocal rank fusion (RRF), and cross-encoder re-ranking.",
+      explanation: "Combine sparse keyword search (BM25) and dense embeddings via Reciprocal Rank Fusion to ensure both exact keyword match and semantic relevance. Pass top-K candidates through a cross-encoder re-ranker before feeding to LLM.",
+    },
+    {
+      type: "MCQ",
+      topic: "Inference Optimization",
+      concept: "ONNX & TensorRT Compilation",
+      difficulty: "Medium",
+      question: "What is the primary optimization benefit of compiling deep learning models to TensorRT or ONNX Runtime before production serving?",
+      options: [
+        "Layer fusion (e.g. Conv+BatchNorm+ReLU), kernel autotuning, and mixed-precision (FP16/INT8) quantization",
+        "Automatic generation of training backpropagation code",
+        "Conversion of PyTorch weights into plain text CSV files",
+        "Removal of GPU requirement by emulating CUDA on CPU",
+      ],
+      correct_answer: "Layer fusion (e.g. Conv+BatchNorm+ReLU), kernel autotuning, and mixed-precision (FP16/INT8) quantization",
+      explanation: "TensorRT performs graph optimization, layer and tensor fusions, kernel autotuning, and precision calibration for target GPU hardware.",
+    },
+    {
+      type: "MCQ",
+      topic: "LLM Systems & Serving",
+      concept: "PagedAttention & KV Cache",
+      difficulty: "Hard",
+      question: "During autoregressive LLM inference (e.g. vLLM, TensorRT-LLM), what critical problem does PagedAttention solve?",
+      options: [
+        "Eliminates redundant key-value projection recomputations while preventing GPU memory fragmentation through virtual paging",
+        "Quantizes all transformer attention heads into binary weights during generation",
+        "Bypasses causal masking to generate 10 tokens simultaneously",
+        "Replaces softmax with linear dot-product kernels at inference time",
+      ],
+      correct_answer: "Eliminates redundant key-value projection recomputations while preventing GPU memory fragmentation through virtual paging",
+      explanation: "PagedAttention manages KV cache memory in non-contiguous virtual pages, nearly eliminating internal/external memory fragmentation and enabling higher batch concurrency.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Vector Search",
+      concept: "HNSW vs IVF-PQ",
+      difficulty: "Hard",
+      question: "Contrast HNSW (Hierarchical Navigable Small World) and IVF-PQ (Inverted File with Product Quantization) regarding query latency, RAM consumption, and recall accuracy.",
+      explanation: "HNSW delivers ultra-low search latency and higher recall via multi-layer proximity graphs but requires substantial RAM. IVF-PQ drastically reduces memory through vector quantization at the cost of lower recall and clustering overhead.",
+    },
+    {
+      type: "MCQ",
+      topic: "Distributed Training",
+      concept: "Tensor Parallelism",
+      difficulty: "Hard",
+      question: "Which distributed training technique splits individual linear layers and weight matrices across multiple GPUs when a single layer exceeds GPU VRAM?",
+      options: [
+        "Tensor Parallelism (Megatron-LM)",
+        "Standard Data Parallelism (DDP)",
+        "Gradient Accumulation with local mini-batches",
+        "Simple CPU Parameter Server polling",
+      ],
+      correct_answer: "Tensor Parallelism (Megatron-LM)",
+      explanation: "Tensor Parallelism splits matrix multiplications across GPUs along rows or columns with all-reduce communication operations.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Large-Scale Training",
+      concept: "ZeRO Memory Stages",
+      difficulty: "Hard",
+      question: "Explain the three stages of ZeRO (Zero Redundancy Optimizer) in DeepSpeed and how Stage 3 eliminates memory redundancy without full tensor parallelism overhead.",
+      explanation: "Stage 1 partitions optimizer states; Stage 2 partitions gradients; Stage 3 partitions model parameters across data-parallel processes. During forward and backward passes, parameters are broadcast on-demand and promptly freed, fitting models with hundreds of billions of parameters.",
+    },
+    {
+      type: "MCQ",
+      topic: "Attention Complexity",
+      concept: "FlashAttention Mechanism",
+      difficulty: "Hard",
+      question: "How does FlashAttention achieve 2-4x speedups without changing the exact mathematical output of standard self-attention?",
+      options: [
+        "It tiles the softmax and attention computation into fast GPU SRAM blocks, avoiding round-trips to high-bandwidth memory (HBM)",
+        "It approximates attention by dropping 50% of the lowest attention weights",
+        "It replaces matrix multiplication with 1D convolution kernels",
+        "It compresses all token sequences into a single embedding vector",
+      ],
+      correct_answer: "It tiles the softmax and attention computation into fast GPU SRAM blocks, avoiding round-trips to high-bandwidth memory (HBM)",
+      explanation: "FlashAttention makes self-attention IO-aware by tiling inputs and computing softmax incrementally in fast on-chip SRAM without materializing the full N x N matrix in HBM.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Production LLM Engineering",
+      concept: "Hallucination Defense Pipeline",
+      difficulty: "Hard",
+      question: "Design an end-to-end production guardrail architecture that intercepts user queries, enforces schema compliance, grounds output in retrieved documents, and rejects jailbreaks.",
+      explanation: "Deploy input toxicity/jailbreak classifiers (Llama Guard), strict semantic cache, bi-encoder + cross-encoder retrieval, constrained structured generation (JSON schema via grammar-guided decoding), and post-generation citation self-verification.",
+    },
+  ],
+  "Software Engineer": [
+    {
+      type: "MCQ",
+      topic: "Data Structures & Complexity",
+      concept: "Hash Table Complexity",
+      difficulty: "Easy",
+      question: "What is the average-case and worst-case lookup time complexity of a standard hash table?",
+      options: [
+        "Average O(1), Worst O(n) under total collision",
+        "Average O(log n), Worst O(n log n)",
+        "Average O(1), Worst O(log n)",
+        "Average O(n), Worst O(n^2)",
+      ],
+      correct_answer: "Average O(1), Worst O(n) under total collision",
+      explanation: "Hash table lookups average O(1) assuming a uniform hash distribution. In the worst case where all keys hash to the same bucket, lookup degrades to O(n).",
+    },
+    {
+      type: "MCQ",
+      topic: "Distributed Systems",
+      concept: "Fault Tolerance & Cascades",
+      difficulty: "Medium",
+      question: "Which pattern is most effective for preventing cascading failures across distributed microservices under unexpected traffic spikes?",
+      options: [
+        "Circuit Breaker pattern with fallback responses",
+        "Linear exponential polling from clients",
+        "Direct synchronous RPC calls with unbounded retries",
+        "Single-node shared memory caching",
+      ],
+      correct_answer: "Circuit Breaker pattern with fallback responses",
+      explanation: "Circuit Breakers stop repeated requests to failing services, preventing resource exhaustion and cascade failure.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Clean Architecture",
+      concept: "Dependency Inversion",
+      difficulty: "Medium",
+      question: "How does the Dependency Inversion Principle facilitate automated unit testing in enterprise backend applications?",
+      explanation: "By relying on abstractions rather than concrete implementations, mock objects or stubs can be easily injected into business logic without invoking external dependencies.",
+    },
+    {
+      type: "MCQ",
+      topic: "Database Indexing",
+      concept: "B-Tree vs Hash Index",
+      difficulty: "Medium",
+      question: "Why do relational databases (PostgreSQL, MySQL) default to B-Tree indexes over Hash indexes for primary keys?",
+      options: [
+        "B-Trees efficiently support range scans (BETWEEN, <, >) and ordered queries in O(log N) time",
+        "Hash indexes require 10x more disk space on every insert",
+        "B-Trees cannot suffer from hash collisions under any circumstances",
+        "Hash indexes only function on integer columns",
+      ],
+      correct_answer: "B-Trees efficiently support range scans (BETWEEN, <, >) and ordered queries in O(log N) time",
+      explanation: "B-Tree maintains sorted order, enabling logarithmic point lookups and range scans. Hash indexes only support O(1) equality lookups.",
+    },
+    {
+      type: "Descriptive",
+      topic: "API Architecture",
+      concept: "Idempotent Webhooks",
+      difficulty: "Medium",
+      question: "Explain how you design an idempotent payment processing webhook endpoint that guarantees at-most-once financial transaction execution despite at-least-once message delivery.",
+      explanation: "Use a unique idempotency key with distributed locks (e.g. Redis SETNX) and atomic database transactions to record transaction states and return cached responses on duplicate deliveries.",
+    },
+    {
+      type: "MCQ",
+      topic: "Consensus Protocols",
+      concept: "Raft Quorum",
+      difficulty: "Hard",
+      question: "In the Raft consensus algorithm, under what condition is a log entry considered committed by the leader?",
+      options: [
+        "Once it is replicated on a majority of cluster nodes (quorum)",
+        "Immediately when received by the leader before sending RPCs",
+        "Only when 100% of cluster nodes acknowledge receipt",
+        "After a fixed 5-second client heartbeat timeout expires",
+      ],
+      correct_answer: "Once it is replicated on a majority of cluster nodes (quorum)",
+      explanation: "A Raft leader commits an entry as soon as it has been successfully replicated on a majority of cluster members.",
     },
     {
       type: "Descriptive",
       topic: "Database Engines",
       concept: "LSM vs B-Tree",
       difficulty: "Hard",
-      question:
-        "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
-      explanation:
-        "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
+      question: "Explain the trade-offs between B-Tree and LSM-Tree storage engines when designing a high-write throughput telemetry pipeline.",
+      explanation: "LSM-Trees optimize for sequential append-only writes with compaction, whereas B-Trees offer faster random point reads with higher write amplification.",
     },
     {
       type: "MCQ",
       topic: "Authentication & Security",
-      concept: "Token Revocation",
-      difficulty: "Medium",
-      question:
-        "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
+      concept: "Token Invalidation",
+      difficulty: "Hard",
+      question: "Which approach is best suited for revoking stateless JWT tokens before their natural expiry timestamp without sacrificing horizontal scalability?",
       options: [
-        "Distributed Redis bloom filter or token blacklist cache",
+        "Distributed Redis bloom filter or token blacklist cache with short TTL",
         "Storing full tokens in local browser cookies only",
         "Modifying JWT secret key globally on each logout",
         "Disabling token verification in backend gateways",
       ],
-      correct_answer: "Distributed Redis bloom filter or token blacklist cache",
-      explanation:
-        "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
+      correct_answer: "Distributed Redis bloom filter or token blacklist cache with short TTL",
+      explanation: "A high-speed distributed cache allows checking revoked token IDs (jti) with minimal latency across all service instances.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Distributed Transactions",
+      concept: "Two-Phase Commit vs Saga",
+      difficulty: "Hard",
+      question: "When orchestrating distributed transactions across multi-service business workflows, contrast Two-Phase Commit (2PC) with the Saga Pattern (choreography/orchestration).",
+      explanation: "2PC provides strict ACID guarantees via blocking locks across coordinators, making it prone to single-point-of-failure bottlenecks. Saga decomposes transactions into local steps with compensating actions, achieving eventual consistency without blocking locks.",
+    },
+    {
+      type: "Descriptive",
+      topic: "System Design",
+      concept: "Scalable URL Shortener (100k QPS)",
+      difficulty: "Hard",
+      question: "Design a high-scale URL shortener serving 100,000 read QPS with 10:1 read-to-write ratio. Detail your Base62 encoding, database partitioning, and caching architecture.",
+      explanation: "Generate unique 64-bit integer IDs via distributed sequence generators (Snowflake / Redis INCR), encoded with Base62 into 7-character strings. Partition relational storage by hash(id). Place Redis read-through cluster in front with LRU eviction to serve 95%+ of reads under 5ms.",
     },
   ],
   "Data Analyst": [
     {
       type: "MCQ",
+      topic: "SQL Aggregation",
+      concept: "Null Handling",
+      difficulty: "Easy",
+      question: "In SQL, how does the aggregate function AVG(column_name) handle NULL values in the dataset?",
+      options: [
+        "It ignores NULL values completely from both the numerator and denominator",
+        "It treats NULL as 0 and includes them in the row count",
+        "It immediately returns NULL for the entire query",
+        "It raises a runtime exception unless COALESCE is specified",
+      ],
+      correct_answer: "It ignores NULL values completely from both the numerator and denominator",
+      explanation: "SQL standard aggregate functions (SUM, AVG, MIN, MAX) automatically ignore NULL values. Only COUNT(*) counts rows with NULLs.",
+    },
+    {
+      type: "MCQ",
       topic: "SQL Analytics",
       concept: "Window Ranking Functions",
       difficulty: "Medium",
-      question:
-        "In SQL, if three employees share the identical highest salary, what values do RANK() and DENSE_RANK() assign to the employee with the next lower salary?",
+      question: "In SQL, if three employees share the identical highest salary, what values do RANK() and DENSE_RANK() assign to the employee with the next lower salary?",
       options: [
         "RANK() assigns 4, while DENSE_RANK() assigns 2",
         "RANK() assigns 2, while DENSE_RANK() assigns 4",
@@ -924,54 +1129,37 @@ const ROLE_QUESTIONS: Record<
         "Both functions assign 4",
       ],
       correct_answer: "RANK() assigns 4, while DENSE_RANK() assigns 2",
-      explanation:
-        "RANK() skips subsequent rank numbers when ties occur (1, 1, 1, 4), whereas DENSE_RANK() never skips rank numbers (1, 1, 1, 2).",
+      explanation: "RANK() skips subsequent rank numbers when ties occur (1, 1, 1, 4), whereas DENSE_RANK() never skips rank numbers (1, 1, 1, 2).",
     },
     {
       type: "Descriptive",
       topic: "Data Warehousing",
       concept: "Star vs Snowflake Schema",
       difficulty: "Medium",
-      question:
-        "Contrast a Star Schema with a normalized Snowflake Schema in cloud analytics warehouses (BigQuery/Snowflake). When is denormalization preferred?",
-      explanation:
-        "Star schemas denormalize dimension tables, reducing expensive table joins and optimizing columnar query performance at the cost of slight storage redundancy.",
+      question: "Contrast a Star Schema with a normalized Snowflake Schema in cloud analytics warehouses (BigQuery/Snowflake). When is denormalization preferred?",
+      explanation: "Star schemas denormalize dimension tables, reducing expensive table joins and optimizing columnar query performance at the cost of slight storage redundancy.",
     },
     {
       type: "MCQ",
       topic: "A/B Testing & Statistics",
       concept: "P-Value Interpretation",
       difficulty: "Medium",
-      question:
-        "In a two-tailed hypothesis test with significance level alpha = 0.05, what does a calculated p-value of 0.02 strictly indicate?",
+      question: "In a two-tailed hypothesis test with significance level alpha = 0.05, what does a calculated p-value of 0.02 strictly indicate?",
       options: [
         "There is a 2% probability of observing results this extreme or more extreme if the null hypothesis is true",
         "The treatment variant has a 98% probability of being genuinely better than control",
         "2% of the sampled audience converted due to the experiment",
         "The statistical power of the test was exactly 98%",
       ],
-      correct_answer:
-        "There is a 2% probability of observing results this extreme or more extreme if the null hypothesis is true",
-      explanation:
-        "A p-value measures the probability of obtaining test results at least as extreme as the observed data under the assumption that the null hypothesis is correct.",
-    },
-    {
-      type: "Descriptive",
-      topic: "Product Analytics",
-      concept: "Cohort Retention Analysis",
-      difficulty: "Hard",
-      question:
-        "How do you construct a cohort retention analysis matrix in SQL to determine whether a drop in Monthly Active Users (MAU) is caused by top-of-funnel acquisition or retention decay?",
-      explanation:
-        "Group users by signup month (cohort) and calculate the percentage of that cohort active in subsequent months (M+1, M+2). If recent cohorts show steeper percentage drops, the issue is retention; if retention curves are stable, the issue is acquisition volume.",
+      correct_answer: "There is a 2% probability of observing results this extreme or more extreme if the null hypothesis is true",
+      explanation: "A p-value measures the probability of obtaining test results at least as extreme as the observed data under the assumption that the null hypothesis is correct.",
     },
     {
       type: "MCQ",
       topic: "Query Optimization",
       concept: "Composite Indexing",
       difficulty: "Medium",
-      question:
-        "To optimize a query filtering on `WHERE region = 'US' AND status = 'COMPLETED' ORDER BY transaction_date DESC`, which index is most effective?",
+      question: "To optimize a query filtering on `WHERE region = 'US' AND status = 'COMPLETED' ORDER BY transaction_date DESC`, which index is most effective?",
       options: [
         "Composite B-tree index on (region, status, transaction_date DESC)",
         "Single-column index on transaction_date only",
@@ -979,8 +1167,61 @@ const ROLE_QUESTIONS: Record<
         "Bitmap index on transaction_date alone",
       ],
       correct_answer: "Composite B-tree index on (region, status, transaction_date DESC)",
-      explanation:
-        "A composite index matching the exact equality filters followed by the sort column allows the database to perform a direct index range scan without sorting in memory.",
+      explanation: "A composite index matching the exact equality filters followed by the sort column allows the database to perform a direct index range scan without sorting in memory.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Product Analytics",
+      concept: "Cohort Retention Analysis",
+      difficulty: "Hard",
+      question: "How do you construct a cohort retention analysis matrix in SQL to determine whether a drop in Monthly Active Users (MAU) is caused by top-of-funnel acquisition or retention decay?",
+      explanation: "Group users by signup month (cohort) and calculate the percentage of that cohort active in subsequent months (M+1, M+2). If recent cohorts show steeper percentage drops, the issue is retention; if retention curves are stable, the issue is acquisition volume.",
+    },
+    {
+      type: "MCQ",
+      topic: "Advanced SQL",
+      concept: "LAG and LEAD Navigation",
+      difficulty: "Hard",
+      question: "Which window construct computes the day-over-day percentage change in user signups without a self-join?",
+      options: [
+        "(signups - LAG(signups, 1) OVER (ORDER BY date)) * 100.0 / LAG(signups, 1) OVER (ORDER BY date)",
+        "(signups - LEAD(signups, 1) OVER (ORDER BY date)) * 100.0",
+        "AVG(signups) OVER (PARTITION BY date)",
+        "SUM(signups) OVER (ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      ],
+      correct_answer: "(signups - LAG(signups, 1) OVER (ORDER BY date)) * 100.0 / LAG(signups, 1) OVER (ORDER BY date)",
+      explanation: "LAG(signups, 1) retrieves the value from the previous row in the specified order, allowing direct delta calculation without joins.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Data Modeling",
+      concept: "Real-Time Materialized Views",
+      difficulty: "Hard",
+      question: "Explain how you design an analytics pipeline with incremental materialized views or dbt incremental models to keep executive KPI dashboards fresh within 60 seconds without full table scans.",
+      explanation: "Use event stream watermarking with append-only staging tables. Apply dbt incremental models with unique keys and `_updated_at > max(_updated_at)` filters to merge deltas without recomputing historical partitions.",
+    },
+    {
+      type: "MCQ",
+      topic: "Hierarchical SQL",
+      concept: "Recursive CTEs",
+      difficulty: "Hard",
+      question: "What two SELECT statements are unioned together inside a standard SQL `WITH RECURSIVE` common table expression?",
+      options: [
+        "An anchor member (base case) and a recursive member referencing the CTE itself",
+        "A subquery and an outer join query",
+        "A group by statement and an order by statement",
+        "A DDL create statement and a DML insert statement",
+      ],
+      correct_answer: "An anchor member (base case) and a recursive member referencing the CTE itself",
+      explanation: "Recursive CTEs consist of an anchor member executing once to initialize the result set, followed by a recursive query executing iteratively until returning an empty set.",
+    },
+    {
+      type: "Descriptive",
+      topic: "Experimentation",
+      concept: "Statistical vs Practical Significance",
+      difficulty: "Hard",
+      question: "A high-traffic experiment shows an uplift of +0.08% in checkout conversions with p = 0.004 on 10 million sessions. How do you evaluate whether to ship this to production?",
+      explanation: "Statistical significance (p < 0.05) proves the effect is non-random, but practical significance requires calculating Minimum Detectable Effect (MDE), annual revenue delta, and maintenance/infrastructure complexity to ensure ROI.",
     },
   ],
 };
@@ -1102,7 +1343,28 @@ export async function fetchNextQuestion(interviewId: number): Promise<NextQuesti
       }
 
       const qList = getRoleQuestions(sess.job_role);
-      const q = qList[idx % qList.length];
+      let q = qList[idx % qList.length];
+
+      // Grounding: If project defense is enabled and user has uploaded project, weave in custom project defense question for Question 3
+      if (sess.use_project_defense !== false && idx === 2) {
+        let projName = "Uploaded Project";
+        try {
+          const rawProj = localStorage.getItem("interviai_active_project");
+          if (rawProj) {
+            const parsed = JSON.parse(rawProj);
+            if (parsed.name) projName = parsed.name;
+          }
+        } catch {}
+
+        q = {
+          type: "Descriptive",
+          topic: "Project Architecture Defense",
+          concept: "System Trade-offs",
+          difficulty: "Hard",
+          question: `In your uploaded project "${projName}", what was the single biggest engineering bottleneck or architectural trade-off you had to navigate, and how did you empirically validate your solution under high concurrency?`,
+          explanation: `Demonstrate structured technical defense: state the baseline latency/throughput bottleneck in ${projName}, discuss alternative designs evaluated, and present quantitative metrics (e.g. p99 latency reduction, error rate drop).`,
+        };
+      }
 
       return {
         finished: false,
