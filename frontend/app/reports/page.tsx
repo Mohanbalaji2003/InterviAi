@@ -277,6 +277,14 @@ export default function ReportsPage() {
             </div>
           )}
 
+          <a
+            href="/InterviAI_Technical_Project_Report.pdf"
+            download="InterviAI_Technical_Project_Report.pdf"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-600/20 px-3 py-1.5 text-xs font-semibold text-violet-200 hover:bg-violet-600/30 hover:border-violet-400 transition shadow-sm cursor-pointer"
+          >
+            <FileText size={14} className="text-violet-300" /> Architecture Dossier PDF
+          </a>
+
           <Button type="button" variant="secondary" onClick={handleDownloadJSON} className="text-xs cursor-pointer">
             <Download size={14} /> JSON Report
           </Button>
